@@ -45,21 +45,21 @@ class _TactilePressableState extends State<TactilePressable> {
       onTap: widget.onTap,
       child: AnimatedScale(
         scale: _pressed ? widget.pressedScale : 1.0,
-        duration: Duration(milliseconds: _pressed ? 100 : 320),
-        curve: _pressed ? Curves.easeOutCubic : Curves.elasticOut,
+        duration: Duration(milliseconds: _pressed ? 95 : 260),
+        curve: _pressed ? Curves.easeOutCubic : Curves.easeOutBack,
         child: widget.child,
       ),
     );
   }
 }
 
-/// Wrapper OOP untuk animasi masuk bertahap (staggered slide-up + fade-in).
+/// Wrapper OOP untuk animasi masuk bertahap yang sangat halus (quintic ease-out, tanpa animasi idle).
 class StaggeredEntrance extends StatefulWidget {
   const StaggeredEntrance({
     super.key,
     required this.child,
     this.delayMs = 0,
-    this.offsetY = 18.0,
+    this.offsetY = 14.0,
   });
 
   final Widget child;
@@ -72,7 +72,9 @@ class StaggeredEntrance extends StatefulWidget {
 
 class _StaggeredEntranceState extends State<StaggeredEntrance>
     with SingleTickerProviderStateMixin {
-  late final int _totalMs = 520 + widget.delayMs;
+  static const Cubic _smoothEaseOut = Cubic(0.22, 1.0, 0.36, 1.0);
+
+  late final int _totalMs = 460 + widget.delayMs;
   late final AnimationController _controller = AnimationController(
     vsync: this,
     duration: Duration(milliseconds: _totalMs),
@@ -89,7 +91,7 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
     final start = widget.delayMs <= 0 ? 0.0 : (widget.delayMs / _totalMs);
     final curved = CurvedAnimation(
       parent: _controller,
-      curve: Interval(start, 1.0, curve: Curves.easeOutCubic),
+      curve: Interval(start, 1.0, curve: _smoothEaseOut),
     );
     return AnimatedBuilder(
       animation: curved,
@@ -100,7 +102,10 @@ class _StaggeredEntranceState extends State<StaggeredEntrance>
           opacity: v,
           child: Transform.translate(
             offset: Offset(0, widget.offsetY * (1.0 - v)),
-            child: child,
+            child: Transform.scale(
+              scale: 0.985 + (0.015 * v),
+              child: child,
+            ),
           ),
         );
       },

@@ -100,9 +100,11 @@ class FloatingBottomNavbar extends StatelessWidget {
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 220),
                         decoration: BoxDecoration(
-                          color: isCameraActive
-                              ? climate.primaryBrand
-                              : climate.activeForecastBg,
+                          color: climate.isOrange
+                              ? climate.accentHighlight
+                              : (isCameraActive
+                                  ? climate.primaryBrand
+                                  : climate.activeForecastBg),
                           borderRadius: BorderRadius.circular(16),
                         ),
                         alignment: Alignment.center,

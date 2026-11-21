@@ -1,11 +1,9 @@
-import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../theme/app_theme.dart';
 import 'figcraft_assets.dart';
 
-/// Hero Logo THALIA dengan bingkai viewfinder [ ] & animasi melayang halus
-/// sesuai layar pertama "Selamat Datang" pada LOGIN.figcraft.
-class ShieldViewfinderHero extends StatefulWidget {
+/// Hero Logo THALIA dengan bingkai viewfinder [ ] (tanpa animasi idle, hanya animasi masuk).
+class ShieldViewfinderHero extends StatelessWidget {
   const ShieldViewfinderHero({
     super.key,
     required this.palette,
@@ -14,88 +12,52 @@ class ShieldViewfinderHero extends StatefulWidget {
   final ThaliaPalette palette;
 
   @override
-  State<ShieldViewfinderHero> createState() => _ShieldViewfinderHeroState();
-}
-
-class _ShieldViewfinderHeroState extends State<ShieldViewfinderHero>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _floatController = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 2800),
-  )..repeat(reverse: true);
-
-  @override
-  void dispose() {
-    _floatController.dispose();
-    super.dispose();
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final palette = widget.palette;
-    return AnimatedBuilder(
-      animation: _floatController,
-      builder: (context, _) {
-        final t = _floatController.value;
-        final dy = math.sin(t * math.pi) * 5.0;
-        return SizedBox(
-          width: 248,
-          height: 310,
-          child: CustomPaint(
-            painter: _ViewfinderCornerPainter(
-              color: palette.border,
-              expansion: t * 3.0,
+    return SizedBox(
+      width: 248,
+      height: 310,
+      child: CustomPaint(
+        painter: _ViewfinderCornerPainter(color: palette.border),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Image.asset(
+              FigcraftAssets.shieldLogo,
+              width: 112,
+              height: 150,
+              fit: BoxFit.contain,
             ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Transform.translate(
-                  offset: Offset(0, -dy),
-                  child: Image.asset(
-                    FigcraftAssets.shieldLogo,
-                    width: 112,
-                    height: 150,
-                    fit: BoxFit.contain,
-                  ),
-                ),
-                const SizedBox(height: 22),
-                Text(
-                  'THALIA',
-                  style: TextStyle(
-                    fontSize: 32,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 3.5,
-                    color: palette.isDark
-                        ? palette.textPrimary
-                        : ThaliaColors.navyDeep,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Tri-Habitat Analysis',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w400,
-                    color: palette.textSecondary,
-                  ),
-                ),
-              ],
+            const SizedBox(height: 22),
+            Text(
+              'THALIA',
+              style: TextStyle(
+                fontSize: 32,
+                fontWeight: FontWeight.w800,
+                letterSpacing: 3.5,
+                color: palette.isDark
+                    ? palette.textPrimary
+                    : ThaliaColors.navyDeep,
+              ),
             ),
-          ),
-        );
-      },
+            const SizedBox(height: 4),
+            Text(
+              'Tri-Habitat Analysis',
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: FontWeight.w400,
+                color: palette.textSecondary,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
 
 class _ViewfinderCornerPainter extends CustomPainter {
-  const _ViewfinderCornerPainter({
-    required this.color,
-    required this.expansion,
-  });
-
+  const _ViewfinderCornerPainter({required this.color});
   final Color color;
-  final double expansion;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -105,11 +67,11 @@ class _ViewfinderCornerPainter extends CustomPainter {
       ..style = PaintingStyle.stroke;
 
     const len = 18.0;
-    final pad = 6.0 - expansion;
+    const pad = 6.0;
 
     // Top-left
-    canvas.drawLine(Offset(pad, pad), Offset(pad + len, pad), paint);
-    canvas.drawLine(Offset(pad, pad), Offset(pad, pad + len), paint);
+    canvas.drawLine(const Offset(pad, pad), const Offset(pad + len, pad), paint);
+    canvas.drawLine(const Offset(pad, pad), const Offset(pad, pad + len), paint);
 
     // Top-right
     canvas.drawLine(
@@ -150,5 +112,5 @@ class _ViewfinderCornerPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(covariant _ViewfinderCornerPainter oldDelegate) =>
-      oldDelegate.expansion != expansion || oldDelegate.color != color;
+      oldDelegate.color != color;
 }

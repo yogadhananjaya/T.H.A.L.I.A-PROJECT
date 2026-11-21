@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../models/dashboard_models.dart';
 import '../widgets/figcraft_assets.dart';
 
@@ -11,7 +12,7 @@ final class DashboardController extends ChangeNotifier {
   DashboardTab _activeTab = DashboardTab.home;
   DashboardTab get activeTab => _activeTab;
 
-  // Default basic: Musim Hujan (Biru) sesuai instruksi user
+  // Default basic: Musim Hujan (Biru)
   SeasonMode _seasonMode = SeasonMode.rainyBlue;
   SeasonMode get seasonMode => _seasonMode;
 
@@ -191,18 +192,14 @@ final class DashboardController extends ChangeNotifier {
   void selectForecastDay(int index) {
     if (index < 0 || index >= forecastDays.length) return;
     _selectedForecastIndex = index;
+    _seasonMode = forecastDays[index].triggersDryOrangePreview
+        ? SeasonMode.dryOrange
+        : SeasonMode.rainyBlue;
     notifyListeners();
   }
 
   void setSeasonMode(SeasonMode mode) {
     _seasonMode = mode;
-    notifyListeners();
-  }
-
-  void toggleSeasonMode() {
-    _seasonMode = _seasonMode == SeasonMode.rainyBlue
-        ? SeasonMode.dryOrange
-        : SeasonMode.rainyBlue;
     notifyListeners();
   }
 
@@ -221,9 +218,23 @@ final class DashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Meminta izin akses Kamera / Galeri lalu memunculkan pop-up form dari bawah ke atas.
+  /// Menyimpan byte foto hasil jepretan live CameraController lalu menampilkan Google Lens sheet.
+  void setCapturedPhotoFromCamera(Uint8List bytes) {
+    _capturedPhotoBytes = bytes;
+    _showLensReportSheet = true;
+    notifyListeners();
+  }
+
+  /// Meminta izin akses Kamera / Galeri native Android lalu membuka kamera/galeri & Google Lens sheet.
   Future<void> captureOrPickFieldPhoto({required ImageSource source}) async {
     try {
+      if (source == ImageSource.camera) {
+        await Permission.camera.request();
+      } else {
+        await Permission.photos.request();
+        await Permission.storage.request();
+      }
+
       final picked = await _picker.pickImage(
         source: source,
         maxWidth: 1200,
@@ -231,10 +242,14 @@ final class DashboardController extends ChangeNotifier {
       );
       if (picked != null) {
         _capturedPhotoBytes = await picked.readAsBytes();
+        _showLensReportSheet = true;
+        notifyListeners();
+        return;
       }
-    } catch (_) {
-      // Fallback di emulator jika webcam virtual belum dikonfigurasi
-    }
+      // Jika memilih dari galeri tapi user batal memilih, jangan buka form
+      if (source == ImageSource.gallery) return;
+    } catch (_) {}
+
     _showLensReportSheet = true;
     notifyListeners();
   }

@@ -69,13 +69,17 @@ class HistoryTabScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
 
-                // 2. Daftar Kartu Laporan Lapangan
-                ...reports.map((report) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: _ReportHistoryCard(
-                      report: report,
-                      climate: climate,
+                // 2. Daftar Kartu Laporan Lapangan dengan animasi masuk halus
+                ...List.generate(reports.length, (index) {
+                  final report = reports[index];
+                  return StaggeredEntrance(
+                    delayMs: 50 + (index * 55),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: _ReportHistoryCard(
+                        report: report,
+                        climate: climate,
+                      ),
                     ),
                   );
                 }),

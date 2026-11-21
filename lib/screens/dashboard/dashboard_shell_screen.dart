@@ -11,6 +11,8 @@ import 'maps_tab_screen.dart';
 import 'profile_screen.dart';
 
 /// Shell OOP Dashboard yang menyatukan 5 Tab (Home, Maps, Kamera, Riwayat, Kalender) + Profil Saya.
+/// Menggunakan StackFit.expand tanpa membungkus ulang currentChild sehingga animasi masuk
+/// hanya jalan 1 kali dengan mulus dan semua tab menempel penuh dari puncak layar (y = 0).
 class DashboardShellScreen extends StatelessWidget {
   const DashboardShellScreen({
     super.key,
@@ -77,10 +79,10 @@ class DashboardShellScreen extends StatelessWidget {
           season: dashboardController.seasonMode,
           isDark: authController.isDarkMode,
         );
-        final hideNavbar = dashboardController.activeTab ==
-                DashboardTab.camera &&
-            dashboardController.showLensReportSheet &&
-            !dashboardController.showingProfile;
+        final hideNavbar =
+            dashboardController.activeTab == DashboardTab.camera &&
+                dashboardController.showLensReportSheet &&
+                !dashboardController.showingProfile;
 
         return ColoredBox(
           color: climate.canvas,
@@ -88,9 +90,25 @@ class DashboardShellScreen extends StatelessWidget {
             children: [
               Expanded(
                 child: AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 280),
+                  duration: const Duration(milliseconds: 220),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
+                  layoutBuilder: (currentChild, previousChildren) {
+                    return Stack(
+                      alignment: Alignment.topCenter,
+                      fit: StackFit.expand,
+                      children: <Widget>[
+                        ...previousChildren,
+                        ?currentChild,
+                      ],
+                    );
+                  },
+                  transitionBuilder: (child, animation) {
+                    return FadeTransition(
+                      opacity: animation,
+                      child: child,
+                    );
+                  },
                   child: _buildTabContent(climate),
                 ),
               ),

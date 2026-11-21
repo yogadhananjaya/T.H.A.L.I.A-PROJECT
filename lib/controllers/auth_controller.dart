@@ -3,14 +3,55 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:permission_handler/permission_handler.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/auth_models.dart';
 
-/// Controller OOP terpusat untuk seluruh fungsi interaktif pada flow LOGIN.figcraft.
+/// Hasil pencarian lokasi Google Maps / Geocoding.
+final class PlaceSearchResult {
+  const PlaceSearchResult({
+    required this.name,
+    required this.subtitle,
+    required this.latitude,
+    required this.longitude,
+  });
+
+  final String name;
+  final String subtitle;
+  final double latitude;
+  final double longitude;
+}
+
+/// Controller OOP terpusat untuk seluruh fungsi interaktif pada flow Auth & Lokasi GPS.
 final class AuthController extends ChangeNotifier {
   final ImagePicker _imagePicker = ImagePicker();
 
-  AuthScreenStep _currentStep = AuthScreenStep.welcome;
+  /// [hasSeenWelcome] true berarti halaman sambutan sudah pernah tampil di perangkat ini,
+  /// sehingga aplikasi langsung dibuka di halaman Masuk.
+  AuthController({bool hasSeenWelcome = false})
+      : _hasSeenWelcome = hasSeenWelcome,
+        _currentStep =
+            hasSeenWelcome ? AuthScreenStep.login : AuthScreenStep.welcome;
+
+  static const String _welcomeSeenKey = 'has_seen_welcome';
+
+  /// Dibaca sekali di main() sebelum runApp.
+  static Future<bool> loadHasSeenWelcome() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      return prefs.getBool(_welcomeSeenKey) ?? false;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  bool _hasSeenWelcome;
+
+  AuthScreenStep _currentStep;
   AuthScreenStep get currentStep => _currentStep;
+
+  /// Layar asal sebelum masuk ke Daftar Akun (Welcome atau Login), dipakai untuk tombol back.
+  AuthScreenStep _registerOrigin = AuthScreenStep.login;
 
   LoginCredentialsModel _loginModel = const LoginCredentialsModel();
   LoginCredentialsModel get loginModel => _loginModel;
@@ -33,13 +74,88 @@ final class AuthController extends ChangeNotifier {
   String? _feedbackBanner;
   String? get feedbackBanner => _feedbackBanner;
 
+  bool _feedbackIsError = false;
+  bool get feedbackIsError => _feedbackIsError;
+
+  // TODO: akun dummy sementara, ganti dengan autentikasi ke backend FastAPI.
+  static const String _dummyUsername = 'admin';
+  static const String _dummyPassword = '123';
+
   bool get isDarkMode => _themeOption == ThemeOption.dark;
 
-  // --- Navigasi Antar Layar LOGIN.figcraft ---
+  static const List<PlaceSearchResult> defaultIndonesianPlaces = [
+    PlaceSearchResult(
+      name: 'Cikarang Utara, Bekasi',
+      subtitle: 'Kabupaten Bekasi, Jawa Barat',
+      latitude: -6.2845,
+      longitude: 107.1705,
+    ),
+    PlaceSearchResult(
+      name: 'Jababeka, Cikarang',
+      subtitle: 'Kawasan Industri Jababeka, Bekasi',
+      latitude: -6.2980,
+      longitude: 107.1475,
+    ),
+    PlaceSearchResult(
+      name: 'ASTRA Polytechnic (Astratech)',
+      subtitle: 'Cikarang Selatan, Kabupaten Bekasi',
+      latitude: -6.3408,
+      longitude: 107.1402,
+    ),
+    PlaceSearchResult(
+      name: 'Bantaran Ciliwung, Manggarai',
+      subtitle: 'Tebet, Jakarta Selatan, DKI Jakarta',
+      latitude: -6.2146,
+      longitude: 106.8492,
+    ),
+    PlaceSearchResult(
+      name: 'Cibinong, Bogor',
+      subtitle: 'Kabupaten Bogor, Jawa Barat',
+      latitude: -6.4816,
+      longitude: 106.8542,
+    ),
+    PlaceSearchResult(
+      name: 'Kelapa Gading, Jakarta Utara',
+      subtitle: 'Jakarta Utara, DKI Jakarta',
+      latitude: -6.1574,
+      longitude: 106.9080,
+    ),
+    PlaceSearchResult(
+      name: 'Dago, Bandung',
+      subtitle: 'Coblong, Kota Bandung, Jawa Barat',
+      latitude: -6.8850,
+      longitude: 107.6135,
+    ),
+  ];
+
+  // --- Navigasi Antar Layar ---
   void navigateTo(AuthScreenStep step) {
+    if (step == AuthScreenStep.register &&
+        (_currentStep == AuthScreenStep.welcome ||
+            _currentStep == AuthScreenStep.login)) {
+      _registerOrigin = _currentStep;
+    }
+    if (_currentStep == AuthScreenStep.welcome &&
+        step != AuthScreenStep.welcome) {
+      _markWelcomeSeen();
+    }
     _currentStep = step;
     _feedbackBanner = null;
+    _feedbackIsError = false;
     notifyListeners();
+  }
+
+  /// Tombol back di Daftar Akun: kembali ke layar asal (Sambutan untuk pengguna baru,
+  /// Masuk untuk pengguna yang sudah pernah membuka aplikasi).
+  void backFromRegister() => navigateTo(_registerOrigin);
+
+  Future<void> _markWelcomeSeen() async {
+    if (_hasSeenWelcome) return;
+    _hasSeenWelcome = true;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool(_welcomeSeenKey, true);
+    } catch (_) {}
   }
 
   // --- Fungsi Halaman Masuk Akun (Login) ---
@@ -104,11 +220,22 @@ final class AuthController extends ChangeNotifier {
 
     _isSubmitting = true;
     _feedbackBanner = null;
+    _feedbackIsError = false;
     notifyListeners();
 
-    await Future<void>.delayed(const Duration(milliseconds: 350));
+    await Future<void>.delayed(const Duration(milliseconds: 320));
     _isSubmitting = false;
-    _currentStep = AuthScreenStep.dashboard;
+
+    final username = _loginModel.emailOrOfficerId.trim().toLowerCase();
+    final isValid = username == _dummyUsername &&
+        _loginModel.password == _dummyPassword;
+
+    if (isValid) {
+      _currentStep = AuthScreenStep.dashboard;
+    } else {
+      _feedbackBanner = 'Username atau kata sandi salah.';
+      _feedbackIsError = true;
+    }
     notifyListeners();
   }
 
@@ -226,9 +353,11 @@ final class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Membuka Galeri / File Manager perangkat untuk memilih foto profil asli.
+  /// Meminta izin Galeri/Media Android terlebih dahulu lalu membuka Galeri / File Manager.
   Future<void> pickProfilePhotoFromGallery() async {
     try {
+      await Permission.photos.request();
+      await Permission.storage.request();
       final picked = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 800,
@@ -241,9 +370,7 @@ final class AuthController extends ChangeNotifier {
         profileImageName: picked.name,
       );
       notifyListeners();
-    } catch (_) {
-      // Tetap aman pada environment test tanpa platform channel galeri.
-    }
+    } catch (_) {}
   }
 
   void toggleTermsAgreed() {
@@ -253,7 +380,7 @@ final class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- Fungsi Halaman Izinkan Akses Lokasi (GPS Permission & Real Maps) ---
+  // --- Fungsi Halaman Izinkan Akses Lokasi & Pencarian Google Maps ---
   Future<void> toggleGpsAutomatic() async {
     if (_gpsModel.isGpsEnabled && !_gpsModel.isScanning) {
       _gpsModel = _gpsModel.copyWith(isGpsEnabled: false);
@@ -274,6 +401,7 @@ final class AuthController extends ChangeNotifier {
     notifyListeners();
 
     try {
+      await Permission.locationWhenInUse.request();
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -282,11 +410,25 @@ final class AuthController extends ChangeNotifier {
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
         _gpsModel = _gpsModel.copyWith(
+          isGpsEnabled: false,
           isScanning: false,
           hasLocationPermission: false,
           accuracyLabel: 'Akurat',
         );
         notifyListeners();
+        return;
+      }
+
+      // Izin sudah ada tapi layanan lokasi HP mati: minta pengguna menyalakannya,
+      // toggle tetap mati sampai pengguna menyalakannya lagi setelah kembali.
+      if (!await Geolocator.isLocationServiceEnabled()) {
+        _gpsModel = _gpsModel.copyWith(
+          isGpsEnabled: false,
+          isScanning: false,
+          accuracyLabel: 'Akurat',
+        );
+        notifyListeners();
+        await Geolocator.openLocationSettings();
         return;
       }
 
@@ -300,8 +442,6 @@ final class AuthController extends ChangeNotifier {
       var lat = position.latitude;
       var lng = position.longitude;
 
-      // Jika emulator Android masih di koordinat default Googleplex California (37.42, -122.08),
-      // arahkan ke titik rumah/kampus Cikarang Utara, Bekasi agar peta sesuai wilayah Indonesia.
       final isEmulatorDefaultCalifornia =
           (lat - 37.422).abs() < 0.08 && (lng - (-122.084)).abs() < 0.08;
       if (isEmulatorDefaultCalifornia) {
@@ -335,7 +475,83 @@ final class AuthController extends ChangeNotifier {
     }
   }
 
-  /// Saat pengguna menggeser atau mengetuk titik di peta secara interaktif.
+  /// Pencarian lokasi interaktif (API Geocoding + database lokal Indonesia).
+  Future<List<PlaceSearchResult>> searchPlaces(String query) async {
+    final q = query.trim();
+    if (q.isEmpty) return defaultIndonesianPlaces;
+
+    final localMatches = defaultIndonesianPlaces.where((place) {
+      return place.name.toLowerCase().contains(q.toLowerCase()) ||
+          place.subtitle.toLowerCase().contains(q.toLowerCase());
+    }).toList();
+
+    try {
+      final client = HttpClient()
+        ..connectionTimeout = const Duration(seconds: 3);
+      final encoded = Uri.encodeQueryComponent(q);
+      final uri = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?format=jsonv2&q=$encoded&countrycodes=id&limit=6&accept-language=id',
+      );
+      final req = await client.getUrl(uri);
+      req.headers.set('User-Agent', 'ThaliaClimateApp/1.0');
+      final res = await req.close();
+      if (res.statusCode == 200) {
+        final body = await res.transform(utf8.decoder).join();
+        final list = jsonDecode(body) as List<dynamic>;
+        final remoteResults = <PlaceSearchResult>[];
+        for (final item in list) {
+          final map = item as Map<String, dynamic>;
+          final displayName = (map['display_name'] as String?) ?? q;
+          final parts = displayName.split(',').map((s) => s.trim()).toList();
+          final title = parts.length >= 2
+              ? '${parts[0]}, ${parts[1]}'
+              : parts.first;
+          final subtitle = parts.skip(1).take(3).join(', ');
+          final lat = double.tryParse('${map['lat']}');
+          final lon = double.tryParse('${map['lon']}');
+          if (lat != null && lon != null) {
+            remoteResults.add(
+              PlaceSearchResult(
+                name: title,
+                subtitle: subtitle.isEmpty ? 'Indonesia' : subtitle,
+                latitude: lat,
+                longitude: lon,
+              ),
+            );
+          }
+        }
+        if (remoteResults.isNotEmpty) {
+          return [...remoteResults, ...localMatches];
+        }
+      }
+    } catch (_) {}
+
+    if (localMatches.isNotEmpty) return localMatches;
+
+    // Jika mengetik nama daerah kustom saat emulator offline, tetap izinkan dipilih langsung
+    return [
+      PlaceSearchResult(
+        name: q,
+        subtitle: 'Titik Koordinat Wilayah Pantauan',
+        latitude: -6.2845,
+        longitude: 107.1705,
+      ),
+      ...defaultIndonesianPlaces,
+    ];
+  }
+
+  void selectPlaceResult(PlaceSearchResult place) {
+    _gpsModel = _gpsModel.copyWith(
+      latitude: place.latitude,
+      longitude: place.longitude,
+      resolvedAddress: place.name,
+      isGpsEnabled: true,
+      accuracyLabel: 'Akurat',
+    );
+    _registerModel = _registerModel.copyWith(detectedLocation: place.name);
+    notifyListeners();
+  }
+
   Future<void> updatePickedMapPoint(double lat, double lng) async {
     _gpsModel = _gpsModel.copyWith(
       latitude: lat,
@@ -382,7 +598,7 @@ final class AuthController extends ChangeNotifier {
         }
       }
     } catch (_) {}
-    return 'Cikarang Utara, Bekasi';
+    return _gpsModel.resolvedAddress;
   }
 
   void saveDetectedLocation() {
