@@ -1,7 +1,10 @@
 import logging
-from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
+import time
+from collections import defaultdict, deque
 from contextlib import asynccontextmanager
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.core.config import settings
 from app.api.v1.router import api_router
@@ -47,6 +50,41 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Sliding-window in-memory rate limiter untuk endpoint autentikasi (Security & Availability)
+_AUTH_RATE_WINDOW_SEC = 60.0
+_AUTH_RATE_MAX_REQUESTS = 30
+_auth_request_log: dict[str, deque[float]] = defaultdict(deque)
+_AUTH_PROTECTED_PATHS = (
+    "/api/v1/auth/login",
+    "/api/v1/auth/register",
+    "/api/v1/auth/forgot-password",
+)
+
+
+@app.middleware("http")
+async def security_and_rate_limit_middleware(request: Request, call_next):
+    path = request.url.path
+    if path in _AUTH_PROTECTED_PATHS and request.method == "POST":
+        client_ip = request.client.host if request.client else "unknown"
+        now = time.monotonic()
+        bucket = _auth_request_log[client_ip]
+        while bucket and (now - bucket[0]) > _AUTH_RATE_WINDOW_SEC:
+            bucket.popleft()
+        if len(bucket) >= _AUTH_RATE_MAX_REQUESTS:
+            return JSONResponse(
+                status_code=429,
+                content={"detail": "Terlalu banyak percobaan. Silakan tunggu sebentar."},
+            )
+        bucket.append(now)
+
+    response = await call_next(request)
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    if path.startswith("/api/v1/auth"):
+        response.headers["Cache-Control"] = "no-store"
+    return response
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 

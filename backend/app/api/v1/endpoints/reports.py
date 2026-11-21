@@ -2,7 +2,7 @@ import base64
 from datetime import datetime, timezone
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy.orm import Session
 
 from app.core.security import get_optional_user
@@ -52,10 +52,26 @@ def _serialize_report(r: FieldReport) -> dict:
 
 
 @router.get("")
-def list_reports(db: Session = Depends(get_db)):
-    """Mengembalikan daftar laporan lapangan warga & petugas."""
-    rows = db.query(FieldReport).order_by(FieldReport.id.desc()).all()
-    return {"reports": [_serialize_report(r) for r in rows]}
+def list_reports(
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    db: Session = Depends(get_db),
+):
+    """Mengembalikan daftar laporan lapangan warga & petugas dengan dukungan pagination."""
+    total = db.query(FieldReport).count()
+    rows = (
+        db.query(FieldReport)
+        .order_by(FieldReport.id.desc())
+        .offset(offset)
+        .limit(limit)
+        .all()
+    )
+    return {
+        "reports": [_serialize_report(r) for r in rows],
+        "total": total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.post("", status_code=status.HTTP_201_CREATED)
