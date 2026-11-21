@@ -153,8 +153,14 @@ final class HttpThaliaApiService implements ThaliaApiService {
   }
 
   @override
-  Future<List<FieldReportItemModel>> fetchReports() async {
-    final data = await _client.get(ApiConfig.reportsPath);
+  Future<List<FieldReportItemModel>> fetchReports({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final data = await _client.get(
+      ApiConfig.reportsPath,
+      query: {'limit': '$limit', 'offset': '$offset'},
+    );
     return _asObjectList(data, key: 'reports')
         .map(FieldReportItemModel.fromJson)
         .toList();

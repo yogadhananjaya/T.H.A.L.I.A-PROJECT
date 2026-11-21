@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/api_models.dart';
 import '../models/dashboard_models.dart';
+import '../services/offline_cache_service.dart';
 import '../services/thalia_api_service.dart';
 
 /// Controller OOP untuk seluruh fitur Dashboard, Maps, Kamera + Form Lens, Riwayat, Kalender, & Profil.
@@ -49,6 +50,11 @@ final class DashboardController extends ChangeNotifier {
 
   /// true selama belum ada jawaban sukses dari layanan data; yang tampil masih data contoh.
   bool get isSampleData => _isSampleData;
+
+  bool _isOfflineCached = false;
+
+  /// true bila data prakiraan saat ini berasal dari cache lokal saat server tidak terjangkau.
+  bool get isOfflineCached => _isOfflineCached;
 
   double _latitude = -6.2845;
   double get latitude => _latitude;
@@ -169,6 +175,8 @@ final class DashboardController extends ChangeNotifier {
     _selectedCalendarDay = DateTime.now().day;
     _forecastDays = ForecastDayModel.samplesForToday();
     _reports = List<FieldReportItemModel>.of(FieldReportItemModel.samples);
+    _isOfflineCached = false;
+    OfflineCacheService.clear();
     notifyListeners();
   }
 
@@ -201,6 +209,8 @@ final class DashboardController extends ChangeNotifier {
         _forecastDays = forecast;
         if (_selectedForecastIndex >= forecast.length) _selectedForecastIndex = 0;
         _isSampleData = false;
+        _isOfflineCached = false;
+        await OfflineCacheService.saveForecast(forecast);
       }
 
       // Gabungkan laporan lokal yang masih Mengirim / Gagal Kirim agar tidak hilang (B13).
@@ -209,15 +219,33 @@ final class DashboardController extends ChangeNotifier {
       _reports = [...pendingLocals, ...serverReports];
     } on ApiException catch (e) {
       if (gen != _loadGeneration) return;
-      _loadError = e.message;
+      await _applyOfflineFallback();
+      _loadError = _isOfflineCached
+          ? '${e.message} (Menampilkan data tersimpan terakhir)'
+          : e.message;
     } catch (_) {
       if (gen != _loadGeneration) return;
-      _loadError = 'Gagal memuat data. Coba lagi.';
+      await _applyOfflineFallback();
+      _loadError = _isOfflineCached
+          ? 'Mode offline · Menampilkan data prakiraan tersimpan terakhir.'
+          : 'Gagal memuat data. Coba lagi.';
     } finally {
       if (gen == _loadGeneration) {
         _isLoading = false;
         notifyListeners();
       }
+    }
+  }
+
+  Future<void> _applyOfflineFallback() async {
+    final cached = await OfflineCacheService.loadForecast();
+    if (cached.days.isNotEmpty) {
+      _forecastDays = cached.days;
+      if (_selectedForecastIndex >= _forecastDays.length) {
+        _selectedForecastIndex = 0;
+      }
+      _isSampleData = false;
+      _isOfflineCached = true;
     }
   }
 

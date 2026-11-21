@@ -31,7 +31,7 @@ final class ApiClient {
   }
 
   Future<dynamic> get(String path, {Map<String, String>? query}) {
-    return _send('GET', path, query: query);
+    return _sendWithRetry('GET', path, query: query);
   }
 
   Future<dynamic> post(String path, {Object? body}) {
@@ -40,6 +40,29 @@ final class ApiClient {
 
   Future<dynamic> put(String path, {Object? body}) {
     return _send('PUT', path, body: body);
+  }
+
+  /// Menjalankan request GET idempoten dengan retry + exponential backoff (300ms, 700ms)
+  /// untuk ketahanan terhadap gangguan jaringan sementara (Reliability & Availability).
+  Future<dynamic> _sendWithRetry(
+    String method,
+    String path, {
+    Map<String, String>? query,
+    int maxRetries = 2,
+  }) async {
+    const delaysMs = <int>[300, 700];
+    for (var attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await _send(method, path, query: query);
+      } on ApiException catch (e) {
+        final isTransientStatus =
+            e.statusCode == null || e.statusCode == 502 || e.statusCode == 503 || e.statusCode == 504;
+        if (!isTransientStatus || attempt == maxRetries) {
+          rethrow;
+        }
+        await Future<void>.delayed(Duration(milliseconds: delaysMs[attempt]));
+      }
+    }
   }
 
   /// Mengirim form multipart dengan lampiran foto biner (B31).
@@ -120,6 +143,13 @@ final class ApiClient {
     try {
       final request = await _http.openUrl(method, uri).timeout(timeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.set(
+        'X-Request-ID',
+        'thalia-${DateTime.now().microsecondsSinceEpoch}',
+      );
+      if (path.contains('/auth/')) {
+        request.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
+      }
       final token = accessToken;
       if (token != null) {
         request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');

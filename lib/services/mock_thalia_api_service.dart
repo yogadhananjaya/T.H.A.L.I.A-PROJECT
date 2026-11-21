@@ -175,8 +175,13 @@ final class MockThaliaApiService implements ThaliaApiService {
   }
 
   @override
-  Future<List<FieldReportItemModel>> fetchReports() async {
-    return List<FieldReportItemModel>.of(_reports);
+  Future<List<FieldReportItemModel>> fetchReports({
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    if (offset >= _reports.length) return const [];
+    final end = (offset + limit) > _reports.length ? _reports.length : offset + limit;
+    return List<FieldReportItemModel>.of(_reports.sublist(offset, end));
   }
 
   @override

@@ -51,8 +51,8 @@ abstract interface class ThaliaApiService {
     int radiusKm = 5,
   });
 
-  /// Riwayat laporan warga milik pengguna yang sedang login.
-  Future<List<FieldReportItemModel>> fetchReports();
+  /// Riwayat laporan warga milik pengguna yang sedang login (mendukung pagination).
+  Future<List<FieldReportItemModel>> fetchReports({int limit = 50, int offset = 0});
 
   /// Mengirim laporan baru dan mengembalikan laporan yang tersimpan di server.
   Future<FieldReportItemModel> submitReport(FieldReportDraft draft);

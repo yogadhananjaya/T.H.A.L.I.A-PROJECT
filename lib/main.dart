@@ -10,9 +10,19 @@ import 'screens/auth_flow_shell.dart';
 import 'screens/splash_screen.dart';
 import 'services/thalia_services.dart';
 import 'theme/app_theme.dart';
+import 'utils/privacy_guard.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Global error boundary agar error tak terduga tercatat aman tanpa membocorkan PII/token.
+  FlutterError.onError = (details) {
+    debugPrint('[THALIA][FlutterError] ${PrivacyGuard.sanitizeErrorMessage(details.exception)}');
+  };
+  PlatformDispatcher.instance.onError = (error, stack) {
+    debugPrint('[THALIA][AsyncError] ${PrivacyGuard.sanitizeErrorMessage(error)}');
+    return true;
+  };
   // Kunci orientasi potret agar preview kamera & layout dashboard tetap konsisten (B33).
   if (!kIsWeb) {
     await SystemChrome.setPreferredOrientations([

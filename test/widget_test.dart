@@ -9,6 +9,8 @@ import 'package:ui_presu/models/auth_models.dart';
 import 'package:ui_presu/models/dashboard_models.dart';
 import 'package:ui_presu/screens/splash_screen.dart';
 import 'package:ui_presu/services/mock_thalia_api_service.dart';
+import 'package:ui_presu/services/offline_cache_service.dart';
+import 'package:ui_presu/utils/privacy_guard.dart';
 import 'package:ui_presu/utils/validators.dart';
 
 void main() {
@@ -186,6 +188,43 @@ void main() {
       });
       expect(processing.statusLabel, 'Proses');
       expect(processing.isCompleted, isFalse);
+    });
+  });
+
+  group('Security, Privacy, Offline-First & Scalability tests', () {
+    test('PrivacyGuard masks PII emails, tokens, and coordinates safely', () {
+      expect(PrivacyGuard.redactEmail('rafie.pratama@gmail.com'), 'ra***@gmail.com');
+      expect(PrivacyGuard.maskToken('secret_token_9876'), '***9876');
+      expect(PrivacyGuard.roundCoordinateForLog(-6.2845123), -6.28);
+      final sanitized = PrivacyGuard.sanitizeErrorMessage(
+        'Auth failed for rafie@gmail.com with Bearer abcdef123456',
+      );
+      expect(sanitized.contains('abcdef123456'), isFalse);
+      expect(sanitized.contains('rafie@gmail.com'), isFalse);
+    });
+
+    test('OfflineCacheService saves, loads, and clears forecast snapshots', () async {
+      SharedPreferences.setMockInitialValues({});
+      final samples = ForecastDayModel.samplesForToday();
+      await OfflineCacheService.saveForecast(samples);
+
+      final loaded = await OfflineCacheService.loadForecast();
+      expect(loaded.days.length, samples.length);
+      expect(loaded.days.first.conditionTitle, samples.first.conditionTitle);
+      expect(loaded.cachedAt, isNotNull);
+
+      await OfflineCacheService.clear();
+      final afterClear = await OfflineCacheService.loadForecast();
+      expect(afterClear.days, isEmpty);
+    });
+
+    test('MockThaliaApiService supports report pagination (limit & offset)', () async {
+      final api = MockThaliaApiService();
+      final page1 = await api.fetchReports(limit: 1, offset: 0);
+      final page2 = await api.fetchReports(limit: 1, offset: 1);
+      expect(page1.length, 1);
+      expect(page2.length, 1);
+      expect(page1.first.id, isNot(page2.first.id));
     });
   });
 }

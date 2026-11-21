@@ -178,6 +178,32 @@ final class ForecastDayModel {
     );
   }
 
+  Map<String, dynamic> toCacheJson() => {
+        'dayShort': dayShort,
+        'dateShort': dateShort,
+        'temperatureC': temperatureC,
+        'conditionTitle': conditionTitle,
+        'conditionSubtitle': conditionSubtitle,
+        'iconAsset': iconAsset,
+        'humidityText': humidityText,
+        'waterLevelText': waterLevelText,
+        'soilText': soilText,
+      };
+
+  factory ForecastDayModel.fromCacheJson(Map<String, dynamic> json) {
+    return ForecastDayModel(
+      dayShort: json['dayShort'] as String? ?? '-',
+      dateShort: json['dateShort'] as String? ?? '-',
+      temperatureC: (json['temperatureC'] as num?)?.round() ?? 0,
+      conditionTitle: json['conditionTitle'] as String? ?? 'Cerah',
+      conditionSubtitle: json['conditionSubtitle'] as String? ?? '-',
+      iconAsset: json['iconAsset'] as String? ?? FigcraftAssets.weatherIconPartly,
+      humidityText: json['humidityText'] as String? ?? 'Lembap -%',
+      waterLevelText: json['waterLevelText'] as String? ?? 'Air - cm',
+      soilText: json['soilText'] as String? ?? 'Tanah -%',
+    );
+  }
+
   static String _conditionTitle(String code) {
     switch (code) {
       case 'sunny':
