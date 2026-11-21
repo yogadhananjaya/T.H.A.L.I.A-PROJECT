@@ -7,6 +7,7 @@ import 'controllers/dashboard_controller.dart';
 import 'models/api_models.dart';
 import 'models/auth_models.dart';
 import 'screens/auth_flow_shell.dart';
+import 'screens/splash_screen.dart';
 import 'services/thalia_services.dart';
 import 'theme/app_theme.dart';
 
@@ -41,6 +42,7 @@ class ThaliaApp extends StatefulWidget {
     this.initialFollowSystem = false,
     this.initialSession,
     this.services,
+    this.showSplash = true,
   });
 
   final bool hasSeenWelcome;
@@ -51,11 +53,15 @@ class ThaliaApp extends StatefulWidget {
   /// Kosong = dipilih otomatis dari ApiConfig (data contoh atau server sungguhan).
   final ThaliaServices? services;
 
+  /// Menentukan apakah Splash Screen animasi pembuka ditampilkan saat startup.
+  final bool showSplash;
+
   @override
   State<ThaliaApp> createState() => _ThaliaAppState();
 }
 
 class _ThaliaAppState extends State<ThaliaApp> {
+  late bool _showingSplash = widget.showSplash;
   late final ThaliaServices _services =
       widget.services ?? ThaliaServices.fromConfig();
   late final AuthController _authController = AuthController(
@@ -166,7 +172,22 @@ class _ThaliaAppState extends State<ThaliaApp> {
           themeMode: mode,
           theme: AppTheme.build(isDark: false),
           darkTheme: AppTheme.build(isDark: true),
-          home: child,
+          home: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 420),
+            child: _showingSplash
+                ? SplashScreen(
+                    key: const ValueKey('splash'),
+                    onCompleted: () {
+                      if (mounted) {
+                        setState(() => _showingSplash = false);
+                      }
+                    },
+                  )
+                : KeyedSubtree(
+                    key: const ValueKey('app-shell'),
+                    child: child!,
+                  ),
+          ),
         );
       },
       child: stableShell,

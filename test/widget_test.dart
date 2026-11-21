@@ -7,15 +7,49 @@ import 'package:ui_presu/controllers/dashboard_controller.dart';
 import 'package:ui_presu/main.dart';
 import 'package:ui_presu/models/auth_models.dart';
 import 'package:ui_presu/models/dashboard_models.dart';
+import 'package:ui_presu/screens/splash_screen.dart';
 import 'package:ui_presu/services/mock_thalia_api_service.dart';
 import 'package:ui_presu/utils/validators.dart';
 
 void main() {
   testWidgets(
-      'Full journey: Selamat Datang -> Masuk Akun (admin/123) -> Dashboard -> Forecast Day Animation',
+      'SplashScreen displays T.H.A.L.I.A text then slides up logo and transitions to app',
       (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const ThaliaApp());
+
+    // Fase 1: Teks T.H.A.L.I.A muncul di awal
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('T.H.A.L.I.A'), findsOneWidget);
+
+    // Fase 2: Logo muncul dengan transisi slide up
+    await tester.pump(const Duration(milliseconds: 800));
+    expect(
+      find.descendant(
+        of: find.byType(SplashScreen),
+        matching: find.byType(SlideTransition),
+      ),
+      findsOneWidget,
+    );
+    expect(
+      find.descendant(
+        of: find.byType(SplashScreen),
+        matching: find.byType(Image),
+      ),
+      findsOneWidget,
+    );
+
+    // Fase 3: Setelah 2.2s + transition, masuk ke Selamat Datang
+    await tester.pump(const Duration(milliseconds: 1600));
+    await tester.pump(const Duration(milliseconds: 500));
+    expect(find.text('Selamat Datang'), findsOneWidget);
+  });
+
+  testWidgets(
+      'Full journey: Selamat Datang -> Masuk Akun (admin/123) -> Dashboard -> Forecast Day Animation',
+      (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
+    await tester.pumpWidget(const ThaliaApp(showSplash: false));
     await tester.pump(const Duration(milliseconds: 600));
 
     // 1. Mulai di Selamat Datang -> Klik Masuk ke Masuk Akun
