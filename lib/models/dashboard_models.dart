@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../widgets/figcraft_assets.dart';
+import 'api_models.dart';
 
 /// Navigasi 5 Tab Utama di Dashboard Shell sesuai login_ui.figcraft.
 enum DashboardTab {
@@ -94,6 +95,33 @@ final class HabitatMetricCardModel {
   final String detailDescription;
 }
 
+/// Status risiko per habitat/hari yang dihitung backend (rule-based).
+enum RiskStatus {
+  safe('aman', 'Aman'),
+  warning('waspada', 'Waspada'),
+  danger('bahaya', 'Bahaya');
+
+  const RiskStatus(this.apiValue, this.label);
+  final String apiValue;
+  final String label;
+
+  /// Nilai tidak dikenal dianggap Aman.
+  static RiskStatus fromApi(String? value) {
+    final v = (value ?? '').toLowerCase();
+    for (final status in RiskStatus.values) {
+      if (status.apiValue == v) return status;
+    }
+    return RiskStatus.safe;
+  }
+}
+
+const List<String> _dayShortNames = ['Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab', 'Min'];
+const List<String> _monthShortNames = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+];
+
+String _two(int n) => n.toString().padLeft(2, '0');
+
 /// Model OOP untuk Prakiraan Cuaca 5 Hari di Dashboard.
 final class ForecastDayModel {
   const ForecastDayModel({
@@ -119,6 +147,135 @@ final class ForecastDayModel {
   final String waterLevelText;
   final String soilText;
   final bool triggersDryOrangePreview;
+
+  /// Membaca satu hari prakiraan dari JSON backend. Kontrak lengkap di API_INTEGRATION.md.
+  /// Field wajib minimal: `date` (YYYY-MM-DD) dan `condition_code`; sisanya opsional.
+  factory ForecastDayModel.fromJson(Map<String, dynamic> json) {
+    final code = (json['condition_code'] as String? ?? '').toLowerCase();
+    final date = DateTime.tryParse(json['date'] as String? ?? '');
+    final rain = (json['rainfall_mm_per_hour'] as num?)?.toDouble();
+    final humidity = (json['humidity_pct'] as num?)?.round();
+    final water = (json['water_level_cm'] as num?)?.round();
+    final soil = (json['soil_moisture_pct'] as num?)?.round();
+    final status = RiskStatus.fromApi(json['status'] as String?);
+
+    final rainText = rain == null ? '-' : rain.toStringAsFixed(1);
+    final subtitle = json['condition_subtitle'] as String? ??
+        'Curah $rainText mm/jam • Status ${status.label}';
+
+    return ForecastDayModel(
+      dayShort: json['day_short'] as String? ??
+          (date == null ? '-' : _dayShortNames[date.weekday - 1]),
+      dateShort: date == null ? '-' : '${date.day}/${date.month}',
+      temperatureC: (json['temperature_c'] as num?)?.round() ?? 0,
+      conditionTitle: json['condition_title'] as String? ?? _conditionTitle(code),
+      conditionSubtitle: subtitle,
+      iconAsset: _conditionIcon(code),
+      humidityText: 'Lembap ${humidity ?? '-'}%',
+      waterLevelText: 'Air ${water ?? '-'} cm',
+      soilText: 'Tanah ${soil ?? '-'}%',
+      triggersDryOrangePreview: code == 'sunny' || code == 'clear',
+    );
+  }
+
+  static String _conditionTitle(String code) {
+    switch (code) {
+      case 'sunny':
+      case 'clear':
+        return 'Cerah Terik';
+      case 'partly_cloudy':
+        return 'Berawan Cerah';
+      case 'cloudy':
+        return 'Mendung Tebal';
+      case 'light_rain':
+        return 'Hujan Ringan';
+      case 'rain':
+        return 'Hujan Lebat';
+      case 'storm':
+      case 'thunderstorm':
+        return 'Hujan Petir';
+      default:
+        return 'Berawan';
+    }
+  }
+
+  static String _conditionIcon(String code) {
+    switch (code) {
+      case 'sunny':
+      case 'clear':
+        return FigcraftAssets.weatherIconSun;
+      case 'cloudy':
+        return FigcraftAssets.weatherIconCloud;
+      case 'light_rain':
+      case 'rain':
+        return FigcraftAssets.weatherIconRain;
+      case 'storm':
+      case 'thunderstorm':
+        return FigcraftAssets.weatherIconStorm;
+      default:
+        return FigcraftAssets.weatherIconPartly;
+    }
+  }
+
+  /// Data contoh: tampil sebelum API menjawab dan dipakai MockThaliaApiService.
+  static const List<ForecastDayModel> samples = [
+    ForecastDayModel(
+      dayShort: 'Sen',
+      dateShort: '12/5',
+      temperatureC: 26,
+      conditionTitle: 'Hujan Ringan',
+      conditionSubtitle: 'Curah 2.0 mm/jam • Status Aman',
+      iconAsset: FigcraftAssets.weatherIconRain,
+      humidityText: 'Lembap 77%',
+      waterLevelText: 'Air 110 cm',
+      soilText: 'Tanah 52%',
+    ),
+    ForecastDayModel(
+      dayShort: 'Sel',
+      dateShort: '13/5',
+      temperatureC: 28,
+      conditionTitle: 'Berawan Cerah',
+      conditionSubtitle: 'Curah 0.4 mm/jam • Status Aman',
+      iconAsset: FigcraftAssets.weatherIconPartly,
+      humidityText: 'Lembap 70%',
+      waterLevelText: 'Air 98 cm',
+      soilText: 'Tanah 48%',
+    ),
+    ForecastDayModel(
+      dayShort: 'Rab',
+      dateShort: '14/5',
+      temperatureC: 27,
+      conditionTitle: 'Mendung Tebal',
+      conditionSubtitle: 'Curah 1.2 mm/jam • Status Aman',
+      iconAsset: FigcraftAssets.weatherIconCloud,
+      humidityText: 'Lembap 74%',
+      waterLevelText: 'Air 105 cm',
+      soilText: 'Tanah 50%',
+    ),
+    ForecastDayModel(
+      dayShort: 'Kam',
+      dateShort: '15/5',
+      temperatureC: 31,
+      conditionTitle: 'Cerah Terik',
+      conditionSubtitle: 'Indeks UV 9 (Tinggi) • Terasa 34°C',
+      iconAsset: FigcraftAssets.weatherIconSun,
+      humidityText: 'Lembap 48%',
+      waterLevelText: 'Air 82 cm',
+      soilText: 'Tanah 34%',
+      triggersDryOrangePreview: true,
+    ),
+    ForecastDayModel(
+      dayShort: 'Jum',
+      dateShort: '16/5',
+      temperatureC: 25,
+      conditionTitle: 'Hujan Petir',
+      conditionSubtitle: 'Curah 14.5 mm/jam • Waspada',
+      iconAsset: FigcraftAssets.weatherIconStorm,
+      humidityText: 'Lembap 86%',
+      waterLevelText: 'Air 135 cm',
+      soilText: 'Tanah 64%',
+    ),
+  ];
 }
 
 enum ReportFilterTab {
@@ -157,4 +314,151 @@ final class FieldReportItemModel {
   final Uint8List? capturedPhotoBytes;
   final String? categoryLabel;
   final String? gpsCoordinates;
+
+  /// Membaca satu laporan dari JSON backend. Kontrak lengkap di API_INTEGRATION.md.
+  /// `status`: "received" (diterima), "processing", "completed"/"verified" (selesai).
+  /// `habitat`: "atmosphere", "hydrosphere", "lithosphere" atau kosong (lapangan).
+  factory FieldReportItemModel.fromJson(Map<String, dynamic> json) {
+    final habitat = (json['habitat'] as String? ?? '').toLowerCase();
+    final status = (json['status'] as String? ?? 'received').toLowerCase();
+    final completed = status == 'completed' || status == 'verified';
+    final created = DateTime.tryParse(json['created_at'] as String? ?? '')?.toLocal();
+    final lat = (json['latitude'] as num?)?.toDouble();
+    final lng = (json['longitude'] as num?)?.toDouble();
+    final description = json['description'] as String? ?? '';
+
+    final String habitatLabel;
+    final String icon;
+    final Color accent;
+    switch (habitat) {
+      case 'hydrosphere':
+        habitatLabel = 'Hidrosfer';
+        icon = FigcraftAssets.weatherIconRain;
+        accent = const Color(0xFF245E96);
+      case 'lithosphere':
+        habitatLabel = 'Litosfer';
+        icon = FigcraftAssets.weatherIconPartly;
+        accent = const Color(0xFF1F5E96);
+      case 'atmosphere':
+        habitatLabel = 'Atmosfer';
+        icon = FigcraftAssets.weatherIconCloud;
+        accent = const Color(0xFFDF9A42);
+      default:
+        habitatLabel = 'Lapangan';
+        icon = FigcraftAssets.weatherIconRain;
+        accent = const Color(0xFF245E96);
+    }
+
+    return FieldReportItemModel(
+      id: '${json['id'] ?? ''}',
+      title: json['title'] as String? ?? 'Laporan Lapangan',
+      timeAndHabitat: '${_formatReportTime(created)} • $habitatLabel',
+      metricSummary: json['metric_summary'] as String? ??
+          (description.isEmpty ? 'Dokumentasi visual terlampir' : _ellipsize(description)),
+      statusLabel: completed ? 'Selesai' : 'Diterima',
+      isCompleted: completed,
+      iconAsset: icon,
+      accentBarColor: accent,
+      categoryLabel: json['category'] as String?,
+      gpsCoordinates: (lat != null && lng != null)
+          ? '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}'
+          : null,
+    );
+  }
+
+  /// Dipakai layanan contoh untuk membentuk laporan dari isian form.
+  factory FieldReportItemModel.fromDraft(
+    FieldReportDraft draft, {
+    required String id,
+  }) {
+    return FieldReportItemModel(
+      id: id,
+      title: 'Laporan ${draft.category} • ${draft.locationName}',
+      timeAndHabitat: '${_formatReportTime(draft.capturedAt)} • Lapangan',
+      metricSummary: draft.description.trim().isEmpty
+          ? 'Dokumentasi visual terlampir'
+          : _ellipsize(draft.description.trim()),
+      statusLabel: 'Diterima',
+      isCompleted: false,
+      iconAsset: FigcraftAssets.weatherIconRain,
+      accentBarColor: const Color(0xFF245E96),
+      capturedPhotoBytes: draft.photoBytes,
+      categoryLabel: draft.category,
+      gpsCoordinates:
+          '${draft.latitude.toStringAsFixed(4)}, ${draft.longitude.toStringAsFixed(4)}',
+    );
+  }
+
+  FieldReportItemModel copyWith({
+    String? id,
+    String? timeAndHabitat,
+    String? metricSummary,
+    String? statusLabel,
+    bool? isCompleted,
+    Uint8List? capturedPhotoBytes,
+  }) {
+    return FieldReportItemModel(
+      id: id ?? this.id,
+      title: title,
+      timeAndHabitat: timeAndHabitat ?? this.timeAndHabitat,
+      metricSummary: metricSummary ?? this.metricSummary,
+      statusLabel: statusLabel ?? this.statusLabel,
+      isCompleted: isCompleted ?? this.isCompleted,
+      iconAsset: iconAsset,
+      accentBarColor: accentBarColor,
+      capturedPhotoBytes: capturedPhotoBytes ?? this.capturedPhotoBytes,
+      categoryLabel: categoryLabel,
+      gpsCoordinates: gpsCoordinates,
+    );
+  }
+
+  static String _ellipsize(String text) =>
+      text.length > 38 ? '${text.substring(0, 38)}...' : text;
+
+  /// "Hari Ini, 14:20", "Kemarin, 09:15" atau "10 Mei 2026".
+  static String _formatReportTime(DateTime? time) {
+    if (time == null) return '-';
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final day = DateTime(time.year, time.month, time.day);
+    final hhmm = '${_two(time.hour)}:${_two(time.minute)}';
+    final diff = today.difference(day).inDays;
+    if (diff == 0) return 'Hari Ini, $hhmm';
+    if (diff == 1) return 'Kemarin, $hhmm';
+    return '${time.day} ${_monthShortNames[time.month - 1]} ${time.year}';
+  }
+
+  /// Data contoh: tampil sebelum API menjawab dan dipakai MockThaliaApiService.
+  static const List<FieldReportItemModel> samples = [
+    FieldReportItemModel(
+      id: 'RPT-1',
+      title: 'Luapan Pintu Air Manggarai',
+      timeAndHabitat: 'Hari Ini, 14:20 • Hidrosfer',
+      metricSummary: 'Tinggi Air 110 cm • pH 6.8',
+      statusLabel: 'Diterima',
+      isCompleted: false,
+      iconAsset: FigcraftAssets.weatherIconRain,
+      accentBarColor: Color(0xFF245E96),
+    ),
+    FieldReportItemModel(
+      id: 'RPT-2',
+      title: 'Kelembapan Lereng Bukit Selatan',
+      timeAndHabitat: 'Kemarin, 09:15 • Litosfer',
+      metricSummary: 'Tanah 52% • Lereng Stabil',
+      statusLabel: 'Selesai',
+      isCompleted: true,
+      iconAsset: FigcraftAssets.weatherIconPartly,
+      accentBarColor: Color(0xFF1F5E96),
+    ),
+    FieldReportItemModel(
+      id: 'RPT-3',
+      title: 'Curah Hujan Lokal Cikarang',
+      timeAndHabitat: '10 Mei 2026 • Atmosfer',
+      metricSummary: 'Suhu 26°C • Hujan 2.0 mm/jam',
+      statusLabel: 'Selesai',
+      isCompleted: true,
+      iconAsset: FigcraftAssets.weatherIconCloud,
+      accentBarColor: Color(0xFFDF9A42),
+    ),
+  ];
 }

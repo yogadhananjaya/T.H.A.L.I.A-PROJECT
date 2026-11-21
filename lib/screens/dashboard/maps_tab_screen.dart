@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
+import '../../config/map_tile_cache.dart';
 import '../../controllers/auth_controller.dart';
 import '../../controllers/dashboard_controller.dart';
 import '../../models/dashboard_models.dart';
@@ -29,6 +30,7 @@ class MapsTabScreen extends StatefulWidget {
 
 class _MapsTabScreenState extends State<MapsTabScreen> {
   final MapController _mapController = MapController();
+  final NetworkTileProvider _tileProvider = MapTileCache.createTileProvider();
 
   @override
   void dispose() {
@@ -132,6 +134,7 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                             ),
                             children: [
                               TileLayer(
+                                tileProvider: _tileProvider,
                                 urlTemplate:
                                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                                 userAgentPackageName: 'com.thalia.ui_presu',

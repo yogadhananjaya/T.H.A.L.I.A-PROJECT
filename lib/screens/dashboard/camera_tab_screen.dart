@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'package:camera/camera.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
@@ -195,6 +196,9 @@ class _CameraTabScreenState extends State<CameraTabScreen>
     try {
       final file = await c.takePicture();
       final bytes = await file.readAsBytes();
+      try {
+        await File(file.path).delete();
+      } catch (_) {}
       if (!mounted) return;
       _dash.setCapturedPhotoFromCamera(bytes);
     } catch (_) {
