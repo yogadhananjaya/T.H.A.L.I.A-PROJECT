@@ -204,3 +204,87 @@ def test_simulator_injection():
     })
     assert response.status_code == 200
     assert response.json()["status"] == "Danger"
+
+
+def test_auth_register_login_and_change_password():
+    # Demo admin / 123 must work out of the box (B01 contract)
+    demo_login = client.post("/api/v1/auth/login", json={"username": "admin", "password": "123"})
+    assert demo_login.status_code == 200
+    assert "access_token" in demo_login.json()
+    assert demo_login.json()["user"]["name"]
+
+    # Register new user
+    reg = client.post("/api/v1/auth/register", json={
+        "full_name": "Rafie Maulana",
+        "email": "rafie.maulana@gmail.com",
+        "password": "password123",
+        "location_name": "Cikarang Utara",
+    })
+    assert reg.status_code == 201
+    token = reg.json()["access_token"]
+    assert reg.json()["user"]["email"] == "rafie.maulana@gmail.com"
+
+    # Login with registered email
+    login_res = client.post("/api/v1/auth/login", json={
+        "username": "rafie.maulana@gmail.com",
+        "password": "password123",
+    })
+    assert login_res.status_code == 200
+
+    # Change password
+    chg = client.post(
+        "/api/v1/auth/change-password",
+        json={"current_password": "password123", "new_password": "newpass456"},
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert chg.status_code == 200
+
+    # Verify old password fails & new password succeeds
+    old_try = client.post("/api/v1/auth/login", json={"username": "rafie.maulana@gmail.com", "password": "password123"})
+    assert old_try.status_code == 401
+    new_try = client.post("/api/v1/auth/login", json={"username": "rafie.maulana@gmail.com", "password": "newpass456"})
+    assert new_try.status_code == 200
+
+    # Forgot password endpoint
+    fp = client.post("/api/v1/auth/forgot-password", json={"email": "rafie.maulana@gmail.com"})
+    assert fp.status_code == 200
+
+
+def test_forecast_and_field_reports_with_utc_z():
+    fc = client.get("/api/v1/forecast?lat=-6.3378&lng=107.1541&radius_km=5")
+    assert fc.status_code == 200
+    data = fc.json()
+    assert len(data["days"]) == 5
+    assert data["generated_at"].endswith("Z")
+
+    # Submit report via JSON
+    rep = client.post("/api/v1/reports", json={
+        "category": "Banjir",
+        "description": "Genangan air setinggi 40 cm di jalan utama Cikarang Selatan.",
+        "location_name": "Cibatu, Cikarang Selatan",
+        "latitude": -6.3378,
+        "longitude": 107.1541,
+    })
+    assert rep.status_code == 201
+    created = rep.json()
+    assert created["created_at"].endswith("Z")
+    assert created["status"] == "received"
+
+    # Submit report via multipart
+    mp = client.post(
+        "/api/v1/reports",
+        data={
+            "category": "Tanah Longsor",
+            "description": "Retakan tanah selebar 15 cm terdeteksi di lereng selatan.",
+            "location_name": "Bukit Selatan",
+            "latitude": "-6.3400",
+            "longitude": "107.1500",
+        },
+        files={"photo": ("test.jpg", b"\xff\xd8\xff\xe0testjpeg", "image/jpeg")},
+    )
+    assert mp.status_code == 201
+    assert mp.json()["has_photo"] is True
+
+    listing = client.get("/api/v1/reports")
+    assert listing.status_code == 200
+    assert len(listing.json()["reports"]) >= 2

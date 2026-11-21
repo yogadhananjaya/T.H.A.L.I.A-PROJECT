@@ -70,3 +70,38 @@ class BMKGSnapshot(Base):
     humidity_pct = Column(Float)
     rainfall_probability_pct = Column(Float, default=0.0)
     raw_payload = Column(JSON, nullable=True)
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now)
+    full_name = Column(String(120), nullable=False)
+    email = Column(String(120), unique=True, index=True, nullable=False)
+    username = Column(String(80), unique=True, index=True, nullable=False)
+    hashed_password = Column(String(256), nullable=False)
+    phone = Column(String(30), default="-")
+    handle = Column(String(60), default="")
+    role = Column(String(30), default="petugas")
+    location_name = Column(String(150), default="")
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    radius_km = Column(Integer, default=5)
+
+
+class FieldReport(Base):
+    __tablename__ = "field_reports"
+
+    id = Column(Integer, primary_key=True, index=True, autoincrement=True)
+    created_at = Column(DateTime(timezone=True), default=utc_now, index=True)
+    user_id = Column(Integer, nullable=True, index=True)
+    reporter_name = Column(String(120), default="Petugas T.H.A.L.I.A")
+    category = Column(String(60), nullable=False)
+    description = Column(Text, nullable=False)
+    location_name = Column(String(150), default="Lokasi Terpantau")
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
+    status = Column(String(30), default="processing")  # processing, received, completed
+    metric_summary = Column(String(150), default="")
+    photo_base64 = Column(Text, nullable=True)
