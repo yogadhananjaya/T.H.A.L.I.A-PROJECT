@@ -22,7 +22,7 @@ Satu tempat saja: **`lib/config/api_config.dart`**.
 |---|---|
 | `baseUrl` | Alamat server FastAPI, tanpa garis miring di akhir |
 | `useMockData` | `true` = data contoh bawaan, `false` = API sungguhan |
-| `loginPath`, `forecastPath`, `reportsPath` | Jalur endpoint (ubah bila backend memakai nama lain) |
+| `loginPath`, `changePasswordPath`, `forecastPath`, `reportsPath` | Jalur endpoint (ubah bila backend memakai nama lain) |
 | `requestTimeout` | Batas tunggu per permintaan (default 8 detik) |
 
 Tidak perlu edit file untuk berpindah mode. Pakai `--dart-define`:
@@ -80,6 +80,18 @@ Jawaban 200:
 { "access_token": "eyJhbGciOi...", "token_type": "bearer", "user": { "name": "Rafie" } }
 ```
 Salah sandi: 401 `{"detail": "Username atau kata sandi salah."}`. Setelah login, setiap request berikutnya membawa header `Authorization: Bearer <access_token>`.
+
+### 3.1b Ganti kata sandi: `POST /api/v1/auth/change-password`
+
+Dipanggil dari layar Profil → Keamanan Akun & Kata Sandi. Wajib membawa header `Authorization: Bearer <access_token>`.
+
+Request:
+```json
+{ "current_password": "123", "new_password": "KataSandiBaru9" }
+```
+Jawaban 200 (isi bebas, aplikasi tidak membacanya): `{"ok": true}`.
+Sandi lama salah: 400/401 `{"detail": "Kata sandi saat ini salah."}`.
+Aplikasi sudah memvalidasi sandi baru minimal 8 karakter dengan huruf dan angka, tetapi backend tetap harus memeriksanya sendiri.
 
 ### 3.2 Prakiraan 5 hari: `GET /api/v1/forecast?lat=-6.284500&lng=107.170500&days=5`
 
@@ -206,6 +218,12 @@ def login(body: dict):
     if body.get("username") == "admin" and body.get("password") == "123":
         return {"access_token": "dev-token", "token_type": "bearer", "user": {"name": "Admin"}}
     raise HTTPException(status_code=401, detail="Username atau kata sandi salah.")
+
+@app.post("/api/v1/auth/change-password")
+def change_password(body: dict):
+    if body.get("current_password") != "123":
+        raise HTTPException(status_code=400, detail="Kata sandi saat ini salah.")
+    return {"ok": True}
 
 @app.get("/api/v1/forecast")
 def forecast(lat: float, lng: float, days: int = 5):

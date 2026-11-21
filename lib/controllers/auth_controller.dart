@@ -448,6 +448,29 @@ final class AuthController extends ChangeNotifier {
     ];
   }
 
+  /// Nama wilayah untuk sebuah titik peta tanpa mengubah lokasi aktif aplikasi.
+  /// Dipakai layar Cari Lokasi saat pengguna menggeser peta.
+  Future<String> describePoint(double lat, double lng) =>
+      _reverseGeocode(lat, lng, fallback: 'Titik pilihan di peta');
+
+  /// Keterangan kapan sandi terakhir diganti. Nilai awal hanyalah contoh dari desain
+  /// sampai backend mengirim tanggal sungguhan.
+  String _passwordChangedLabel = 'Sandi terakhir diperbarui 14 hari lalu';
+  String get passwordChangedLabel => _passwordChangedLabel;
+
+  /// Mengganti kata sandi lewat [AuthService]. Melempar [ApiException] bila ditolak server.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _authService.changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+    _passwordChangedLabel = 'Sandi terakhir diperbarui baru saja';
+    notifyListeners();
+  }
+
   void selectPlaceResult(PlaceSearchResult place) {
     _gpsModel = _gpsModel.copyWith(
       latitude: place.latitude,
@@ -475,7 +498,11 @@ final class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  Future<String> _reverseGeocode(double lat, double lng) async {
+  Future<String> _reverseGeocode(
+    double lat,
+    double lng, {
+    String? fallback,
+  }) async {
     try {
       final client = HttpClient()
         ..connectionTimeout = const Duration(seconds: 4);
@@ -506,7 +533,7 @@ final class AuthController extends ChangeNotifier {
         }
       }
     } catch (_) {}
-    return _gpsModel.resolvedAddress;
+    return fallback ?? _gpsModel.resolvedAddress;
   }
 
   void saveDetectedLocation() {

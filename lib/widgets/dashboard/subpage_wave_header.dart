@@ -11,14 +11,15 @@ class SubpageWaveHeader extends StatefulWidget {
     required this.climate,
     required this.eyebrowText,
     required this.titleText,
-    required this.onTapProfile,
+    this.onTapProfile,
     this.onTapBack,
   });
 
   final ClimatePalette climate;
   final String eyebrowText;
   final String titleText;
-  final VoidCallback onTapProfile;
+  /// Null menyembunyikan tombol profil di kanan atas (dipakai layar Keamanan & Cari Lokasi).
+  final VoidCallback? onTapProfile;
   final VoidCallback? onTapBack;
 
   @override
@@ -87,6 +88,7 @@ class _SubpageWaveHeaderState extends State<SubpageWaveHeader>
                     ),
                   ),
                 ),
+              if (widget.onTapProfile != null)
               Positioned(
                 top: 44,
                 right: 20,

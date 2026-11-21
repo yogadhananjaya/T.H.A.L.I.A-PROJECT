@@ -10,7 +10,7 @@ final class MockAuthService implements AuthService {
   final Duration latency;
 
   static const String _username = 'admin';
-  static const String _password = '123';
+  String _password = '123';
 
   @override
   Future<AuthSession> login({
@@ -27,6 +27,18 @@ final class MockAuthService implements AuthService {
 
   @override
   Future<void> logout() async {}
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await Future<void>.delayed(latency);
+    if (currentPassword != _password) {
+      throw const ApiException('Kata sandi saat ini salah.');
+    }
+    _password = newPassword;
+  }
 }
 
 /// Data contoh bawaan aplikasi (sama dengan tampilan sebelum API tersambung).

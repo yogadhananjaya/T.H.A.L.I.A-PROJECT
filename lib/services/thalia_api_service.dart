@@ -9,6 +9,13 @@ abstract interface class AuthService {
   Future<AuthSession> login({required String username, required String password});
 
   Future<void> logout();
+
+  /// Mengganti kata sandi akun yang sedang login.
+  /// Melempar [ApiException] bila sandi saat ini salah atau server tidak terjangkau.
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  });
 }
 
 /// Kontrak data dashboard (prakiraan, sensor, laporan warga).

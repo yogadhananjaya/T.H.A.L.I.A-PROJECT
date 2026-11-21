@@ -31,6 +31,20 @@ final class HttpAuthService implements AuthService {
   Future<void> logout() async {
     _client.accessToken = null;
   }
+
+  @override
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _client.post(
+      ApiConfig.changePasswordPath,
+      body: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+    );
+  }
 }
 
 /// Data dashboard dari backend FastAPI (yang menerima data ESP32, membandingkan

@@ -5,6 +5,7 @@ import '../../models/auth_models.dart';
 import '../../models/dashboard_models.dart';
 import '../../widgets/dashboard/subpage_wave_header.dart';
 import '../../widgets/tactile_interaction.dart';
+import 'security_screen.dart';
 
 /// Layar 6 pada login_ui.figcraft: "Profil Saya"
 /// menghubungkan tombol "Pengaturan (Tema & Versi)" langsung ke halaman Pengaturan awal.
@@ -231,7 +232,11 @@ class ProfileScreen extends StatelessWidget {
                 _ProfileActionTile(
                   label: 'Keamanan Akun & Kata Sandi',
                   climate: climate,
-                  onTap: () {},
+                  onTap: () => SecurityScreen.open(
+                    context,
+                    dashboardController: dashboardController,
+                    authController: authController,
+                  ),
                 ),
                 const SizedBox(height: 14),
 

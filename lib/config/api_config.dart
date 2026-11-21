@@ -25,6 +25,7 @@ final class ApiConfig {
 
   // --- Jalur endpoint (ubah di sini bila backend memakai nama lain) ---
   static const String loginPath = '/api/v1/auth/login';
+  static const String changePasswordPath = '/api/v1/auth/change-password';
   static const String forecastPath = '/api/v1/forecast';
   static const String reportsPath = '/api/v1/reports';
 }
