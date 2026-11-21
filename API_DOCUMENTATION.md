@@ -128,11 +128,22 @@ Gunakan endpoint ini di browser atau postman saat presentasi jika ingin menunjuk
 
 ## 🚀 4. Cara Menjalankan Sistem
 
-1. **Jalankan Node Blockchain Lokal:**
-   Double-click `run_blockchain.bat`
-2. **Deploy Smart Contract:**
-   Double-click `deploy_contract.bat`
-3. **Jalankan Backend Server:**
-   Double-click `run_backend.bat` (Buka `http://localhost:8000/docs` di browser)
-4. **Jalankan Sensor Simulator (Opsional jika hardware belum tersambung):**
-   Double-click `run_simulator.bat`
+**Satu klik:** tutup semua jendela lama (node/backend), lalu double-click `start_all.bat`.
+Ia menjalankan Hardhat → deploy kontrak → backend → membuka dashboard `http://localhost:8000/dashboard`.
+
+Simulator sensor bertahap (Aman → Waspada → Bahaya → pulih, 5 detik/langkah): `run_simulator.bat`
+
+Manual (jika perlu): `run_blockchain.bat` → `deploy_contract.bat` → `run_backend.bat`.
+
+### Koneksi ESP32 / perangkat lain
+1. Laptop dan ESP32 harus satu jaringan Wi-Fi. Cek IP laptop: `ipconfig` (IPv4).
+2. Endpoint untuk ESP32: `http://<IP_LAPTOP>:8000/api/v1/telemetry`
+3. Jika tidak bisa terhubung, izinkan port 8000 di Windows Firewall (PowerShell **Administrator**):
+   `New-NetFirewallRule -DisplayName "THALIA API" -Direction Inbound -LocalPort 8000 -Protocol TCP -Action Allow`
+4. Uji dari perangkat lain: buka `http://<IP_LAPTOP>:8000/dashboard`.
+
+### BMKG
+Kode wilayah diatur di `backend/.env` (`DEFAULT_REGION_CODE`, format adm4 desa/kelurahan).
+Saat ini: `32.73.05.1001` (Maleber, Andir, Kota Bandung). Jika BMKG tidak mengembalikan
+prakiraan, panel perbandingan diberi label **FALLBACK** (bukan live).
+

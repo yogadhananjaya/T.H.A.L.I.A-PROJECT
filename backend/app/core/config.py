@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     
     # BMKG Open Data API settings
     BMKG_API_URL: str = os.getenv("BMKG_API_URL", "https://api.bmkg.go.id/publik/prakiraan-cuaca")
-    DEFAULT_REGION_CODE: str = os.getenv("DEFAULT_REGION_CODE", "31.73.04.1001") # Default location code
+    DEFAULT_REGION_CODE: str = os.getenv("DEFAULT_REGION_CODE", "32.73.05.1001") # Maleber, Andir, Kota Bandung
     
     # Firebase Cloud Messaging (FCM)
     FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase_service_account.json")
