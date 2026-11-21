@@ -74,14 +74,6 @@ final class ClimatePalette {
   Color get activeForecastBg =>
       isOrange ? const Color(0xFFB52D1E) : const Color(0xFF132B47);
 
-  String get dashboardHeaderAsset => isOrange
-      ? FigcraftAssets.dashboardHeaderOrange
-      : FigcraftAssets.dashboardHeaderBlue;
-
-  String get subpageWaveAsset => isOrange
-      ? FigcraftAssets.subpageWaveOrange
-      : FigcraftAssets.subpageWaveBlue;
-
   String get heroWeatherCardAsset => isOrange
       ? FigcraftAssets.heroWeatherSunCard
       : FigcraftAssets.heroWeatherRainCard;

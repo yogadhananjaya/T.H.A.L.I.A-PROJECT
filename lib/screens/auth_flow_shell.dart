@@ -11,7 +11,8 @@ import 'register_screen.dart';
 import 'theme_settings_screen.dart';
 import 'welcome_screen.dart';
 
-/// Shell Navigasi OOP yang menghubungkan Auth Flow (LOGIN.figcraft) & Dashboard Flow (login_ui.figcraft).
+/// Shell Navigasi OOP yang menghubungkan Auth Flow & Dashboard Flow.
+/// Menggunakan StackFit.expand tanpa membungkus ulang currentChild agar animasi masuk tidak ter-load 2 kali.
 class AuthFlowShell extends StatelessWidget {
   const AuthFlowShell({
     super.key,
@@ -94,20 +95,23 @@ class AuthFlowShell extends StatelessWidget {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 430),
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
+              duration: const Duration(milliseconds: 240),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
+              layoutBuilder: (currentChild, previousChildren) {
+                return Stack(
+                  alignment: Alignment.topCenter,
+                  fit: StackFit.expand,
+                  children: <Widget>[
+                    ...previousChildren,
+                    ?currentChild,
+                  ],
+                );
+              },
               transitionBuilder: (child, animation) {
-                final offsetAnimation = Tween<Offset>(
-                  begin: const Offset(0.03, 0),
-                  end: Offset.zero,
-                ).animate(animation);
                 return FadeTransition(
                   opacity: animation,
-                  child: SlideTransition(
-                    position: offsetAnimation,
-                    child: child,
-                  ),
+                  child: child,
                 );
               },
               child: _buildActiveScreen(palette),

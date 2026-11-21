@@ -78,7 +78,9 @@ class CalendarTabScreen extends StatelessWidget {
             child: Column(
               children: [
                 // 1. Kartu Grid Kalender Bulanan sesuai Frame 531
-                Container(
+                StaggeredEntrance(
+                  delayMs: 40,
+                  child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(14, 16, 14, 14),
                   decoration: BoxDecoration(
@@ -199,10 +201,13 @@ class CalendarTabScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+                ),
                 const SizedBox(height: 14),
 
                 // 2. Kartu Ringkasan Tanggal Terpilih Bawah sesuai Frame 531
-                Container(
+                StaggeredEntrance(
+                  delayMs: 110,
+                  child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
@@ -304,6 +309,7 @@ class CalendarTabScreen extends StatelessWidget {
                       ),
                     ],
                   ),
+                ),
                 ),
               ],
             ),

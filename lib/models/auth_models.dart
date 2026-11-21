@@ -129,7 +129,7 @@ final class GpsLocationModel {
     this.longitude = 107.1705,
     this.resolvedAddress = 'Cikarang Utara, Bekasi',
     this.accuracyLabel = 'Akurat',
-    this.isGpsEnabled = true,
+    this.isGpsEnabled = false,
     this.isScanning = false,
     this.hasLocationPermission = false,
   });

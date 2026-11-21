@@ -151,16 +151,24 @@ class LoginScreen extends StatelessWidget {
                       vertical: 10,
                     ),
                     decoration: BoxDecoration(
-                      color: ThaliaColors.mintBannerFill,
+                      color: controller.feedbackIsError
+                          ? const Color(0xFFFEF2F2)
+                          : ThaliaColors.mintBannerFill,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: ThaliaColors.emeraldPrimary),
+                      border: Border.all(
+                        color: controller.feedbackIsError
+                            ? const Color(0xFFEF4444)
+                            : ThaliaColors.emeraldPrimary,
+                      ),
                     ),
                     child: Text(
                       controller.feedbackBanner!,
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 12.5,
                         fontWeight: FontWeight.w700,
-                        color: ThaliaColors.forestDark,
+                        color: controller.feedbackIsError
+                            ? const Color(0xFFB91C1C)
+                            : ThaliaColors.forestDark,
                       ),
                     ),
                   ),

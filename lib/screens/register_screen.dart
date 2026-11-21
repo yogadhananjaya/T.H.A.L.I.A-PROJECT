@@ -37,7 +37,7 @@ class RegisterScreen extends StatelessWidget {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: TactilePressable(
-                    onTap: () => controller.navigateTo(AuthScreenStep.welcome),
+                    onTap: controller.backFromRegister,
                     child: Container(
                       width: 38,
                       height: 38,

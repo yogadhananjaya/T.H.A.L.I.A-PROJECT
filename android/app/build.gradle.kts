@@ -6,7 +6,7 @@ plugins {
 
 android {
     namespace = "com.example.ui_presu"
-    compileSdk = flutter.compileSdkVersion
+    compileSdk = 37 // dinaikkan karena permission_handler_android butuh SDK 37
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
@@ -27,12 +27,17 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
+
+        ndk {
+            // Hanya bundle ABI 64-bit modern (emulator x86_64 & HP arm64-v8a), buang 32-bit lawas
+            abiFilters += listOf("x86_64", "arm64-v8a")
+        }
     }
 
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
+            isMinifyEnabled = true
+            isShrinkResources = true
             signingConfig = signingConfigs.getByName("debug")
         }
     }

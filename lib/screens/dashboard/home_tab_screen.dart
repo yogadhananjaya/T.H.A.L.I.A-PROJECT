@@ -5,7 +5,8 @@ import '../../models/dashboard_models.dart';
 import '../../widgets/tactile_interaction.dart';
 
 /// Tab 1: Dashboard Utama (Frame 59 Musim Hujan Biru & Frame 1303 Kemarau Oren)
-/// dilengkapi animasi pemilihan hari, suhu, floating hero card, & pintasan Maps.
+/// memiliki animasi idle khusus pada bagian kubah & tetesan hujan biru di atas (Screenshot 2),
+/// sementara elemen bawah hanya menggunakan animasi masuk sekali jalan yang halus.
 class HomeTabScreen extends StatefulWidget {
   const HomeTabScreen({
     super.key,
@@ -24,14 +25,14 @@ class HomeTabScreen extends StatefulWidget {
 
 class _HomeTabScreenState extends State<HomeTabScreen>
     with SingleTickerProviderStateMixin {
-  late final AnimationController _floatController = AnimationController(
+  late final AnimationController _topHeaderIdleController = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 2800),
+    duration: const Duration(milliseconds: 3000),
   )..repeat(reverse: true);
 
   @override
   void dispose() {
-    _floatController.dispose();
+    _topHeaderIdleController.dispose();
     super.dispose();
   }
 
@@ -101,27 +102,23 @@ class _HomeTabScreenState extends State<HomeTabScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // 1. Header Geometry (menempel di puncak layar y = 0) + Tombol Profil Kanan Atas
+          // 1. Header Geometry Atas dengan Animasi Idle Kubah & Tetesan Air (Screenshot 2)
           SizedBox(
             width: double.infinity,
-            height: 190,
+            height: 194,
             child: Stack(
               children: [
                 Positioned.fill(
                   child: AnimatedBuilder(
-                    animation: _floatController,
-                    builder: (context, child) {
-                      final dy =
-                          math.sin(_floatController.value * math.pi) * 2.5;
-                      return Transform.translate(
-                        offset: Offset(0, dy),
-                        child: child,
+                    animation: _topHeaderIdleController,
+                    builder: (context, _) {
+                      return CustomPaint(
+                        painter: _AnimatedDashboardTopHeaderPainter(
+                          climate: climate,
+                          progress: _topHeaderIdleController.value,
+                        ),
                       );
                     },
-                    child: Image.asset(
-                      climate.dashboardHeaderAsset,
-                      fit: BoxFit.fill,
-                    ),
                   ),
                 ),
                 Positioned(
@@ -152,283 +149,295 @@ class _HomeTabScreenState extends State<HomeTabScreen>
             ),
           ),
 
-          // 2. Konten Utama Dashboard
+          // 2. Konten Utama Dashboard (Hanya Animasi Masuk Halus, Tanpa Animasi Idle)
           Padding(
-            padding: const EdgeInsets.fromLTRB(26, 4, 26, 16),
+            padding: const EdgeInsets.fromLTRB(26, 2, 26, 16),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 // Pill Lokasi (ketuk untuk langsung ke tab Maps & ubah lokasi)
-                TactilePressable(
-                  onTap: () => ctrl.selectTab(DashboardTab.maps),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 7,
-                    ),
-                    decoration: BoxDecoration(
-                      color: climate.pillFill,
-                      borderRadius: BorderRadius.circular(16),
-                      border: Border.all(color: climate.border),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Container(
-                          width: 9,
-                          height: 9,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: climate.primaryBrand,
-                          ),
+                StaggeredEntrance(
+                  delayMs: 30,
+                  child: TactilePressable(
+                    onTap: () => ctrl.selectTab(DashboardTab.maps),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 7,
+                      ),
+                      decoration: BoxDecoration(
+                        color: climate.pillFill,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: climate.isOrange
+                              ? climate.accentHighlight
+                              : climate.border,
                         ),
-                        const SizedBox(width: 8),
-                        Flexible(
-                          child: Text(
-                            widget.locationName,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              color: climate.primaryDark,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-
-                // 3. Hero Suhu & Kartu Icon Cuaca Beranimasi
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              TweenAnimationBuilder<double>(
-                                tween: Tween<double>(
-                                  begin: 24,
-                                  end: forecast.temperatureC.toDouble(),
-                                ),
-                                duration: const Duration(milliseconds: 420),
-                                curve: Curves.easeOutBack,
-                                builder: (context, val, _) {
-                                  return Text(
-                                    '${val.round()}',
-                                    style: TextStyle(
-                                      fontSize: 78,
-                                      fontWeight: FontWeight.w800,
-                                      height: 1.0,
-                                      letterSpacing: -3.0,
-                                      color: climate.primaryDark,
-                                    ),
-                                  );
-                                },
-                              ),
-                              const SizedBox(width: 4),
-                              Padding(
-                                padding: const EdgeInsets.only(top: 10),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 15,
-                                      height: 15,
-                                      decoration: BoxDecoration(
-                                        shape: BoxShape.circle,
-                                        border: Border.all(
-                                          color: climate.accentHighlight,
-                                          width: 2.4,
-                                        ),
-                                      ),
-                                    ),
-                                    const SizedBox(width: 3),
-                                    Text(
-                                      'C',
-                                      style: TextStyle(
-                                        fontSize: 28,
-                                        fontWeight: FontWeight.w800,
-                                        height: 1.0,
-                                        color: climate.primaryDark,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 240),
-                            child: Text(
-                              forecast.conditionTitle,
-                              key: ValueKey<String>(forecast.conditionTitle),
-                              style: TextStyle(
-                                fontSize: 22,
-                                fontWeight: FontWeight.w800,
-                                letterSpacing: -0.5,
-                                color: climate.isOrange
-                                    ? climate.primaryBrand
-                                    : climate.primaryDark,
-                              ),
+                          Container(
+                            width: 9,
+                            height: 9,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: climate.primaryBrand,
                             ),
                           ),
-                          const SizedBox(height: 4),
-                          AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 240),
+                          const SizedBox(width: 8),
+                          Flexible(
                             child: Text(
-                              forecast.conditionSubtitle,
-                              key: ValueKey<String>(forecast.conditionSubtitle),
+                              widget.locationName,
+                              overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 12.5,
-                                fontWeight: FontWeight.w500,
-                                color: climate.textSecondary,
+                                fontWeight: FontWeight.w800,
+                                color: climate.primaryDark,
                               ),
                             ),
                           ),
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
-                    // Hero Weather Card Asset dari login_ui.figcraft
-                    AnimatedBuilder(
-                      animation: _floatController,
-                      builder: (context, _) {
-                        final dy =
-                            math.sin(_floatController.value * math.pi) * 4.0;
-                        return Transform.translate(
-                          offset: Offset(0, -dy),
-                          child: AnimatedSwitcher(
-                            duration: const Duration(milliseconds: 280),
-                            child: Image.asset(
-                              useSunCard
-                                  ? 'assets/images/hero_weather_sun_card.png'
-                                  : 'assets/images/hero_weather_rain_card.png',
-                              key: ValueKey<bool>(useSunCard),
-                              width: 114,
-                              height: 112,
-                              fit: BoxFit.contain,
+                // 3. Hero Suhu & Kartu Icon Cuaca
+                StaggeredEntrance(
+                  delayMs: 65,
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                TweenAnimationBuilder<double>(
+                                  tween: Tween<double>(
+                                    begin: 24,
+                                    end: forecast.temperatureC.toDouble(),
+                                  ),
+                                  duration: const Duration(milliseconds: 360),
+                                  curve: Curves.easeOutCubic,
+                                  builder: (context, val, _) {
+                                    return Text(
+                                      '${val.round()}',
+                                      style: TextStyle(
+                                        fontSize: 78,
+                                        fontWeight: FontWeight.w800,
+                                        height: 1.0,
+                                        letterSpacing: -3.0,
+                                        color: climate.primaryDark,
+                                      ),
+                                    );
+                                  },
+                                ),
+                                const SizedBox(width: 4),
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 10),
+                                  child: Row(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Container(
+                                        width: 15,
+                                        height: 15,
+                                        decoration: BoxDecoration(
+                                          shape: BoxShape.circle,
+                                          border: Border.all(
+                                            color: climate.accentHighlight,
+                                            width: 2.4,
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 3),
+                                      Text(
+                                        'C',
+                                        style: TextStyle(
+                                          fontSize: 28,
+                                          fontWeight: FontWeight.w800,
+                                          height: 1.0,
+                                          color: climate.primaryDark,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
                             ),
-                          ),
-                        );
-                      },
-                    ),
-                  ],
+                            const SizedBox(height: 6),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              child: Text(
+                                forecast.conditionTitle,
+                                key: ValueKey<String>(forecast.conditionTitle),
+                                style: TextStyle(
+                                  fontSize: 22,
+                                  fontWeight: FontWeight.w800,
+                                  letterSpacing: -0.5,
+                                  color: climate.isOrange
+                                      ? climate.primaryBrand
+                                      : climate.primaryDark,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            AnimatedSwitcher(
+                              duration: const Duration(milliseconds: 220),
+                              child: Text(
+                                forecast.conditionSubtitle,
+                                key: ValueKey<String>(
+                                  forecast.conditionSubtitle,
+                                ),
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w500,
+                                  color: climate.textSecondary,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 240),
+                        child: Image.asset(
+                          useSunCard
+                              ? 'assets/images/hero_weather_sun_card.png'
+                              : 'assets/images/hero_weather_rain_card.png',
+                          key: ValueKey<bool>(useSunCard),
+                          width: 114,
+                          height: 112,
+                          fit: BoxFit.contain,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 18),
 
                 // 4. Baris 3 Kartu Tri-Habitat (Atmosfer, Hidrosfer, Litosfer)
-                Row(
-                  children: [
-                    Expanded(
-                      child: _TriHabitatMiniCard(
-                        title: 'Atmosfer',
-                        valueText: forecast.humidityText,
-                        dotColor: climate.warmDot,
-                        climate: climate,
-                        onTap: () => _showHabitatDetailSheet(
-                          context,
+                StaggeredEntrance(
+                  delayMs: 100,
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: _TriHabitatMiniCard(
                           title: 'Atmosfer',
-                          value: forecast.humidityText,
-                          description:
-                              'Pemantauan kelembapan udara mikro & intensitas curah hujan dari sensor BME280.',
+                          valueText: forecast.humidityText,
+                          dotColor: climate.warmDot,
+                          climate: climate,
+                          onTap: () => _showHabitatDetailSheet(
+                            context,
+                            title: 'Atmosfer',
+                            value: forecast.humidityText,
+                            description:
+                                'Pemantauan kelembapan udara mikro & intensitas curah hujan dari sensor BME280.',
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: _TriHabitatMiniCard(
-                        title: 'Hidrosfer',
-                        valueText: forecast.waterLevelText,
-                        dotColor: climate.primaryBrand,
-                        climate: climate,
-                        onTap: () => _showHabitatDetailSheet(
-                          context,
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: _TriHabitatMiniCard(
                           title: 'Hidrosfer',
-                          value: forecast.waterLevelText,
-                          description:
-                              'Pemantauan kondisi aliran air & kualitas pH air permukaan secara real-time.',
+                          valueText: forecast.waterLevelText,
+                          dotColor: climate.primaryBrand,
+                          climate: climate,
+                          onTap: () => _showHabitatDetailSheet(
+                            context,
+                            title: 'Hidrosfer',
+                            value: forecast.waterLevelText,
+                            description:
+                                'Pemantauan kondisi aliran air & kualitas pH air permukaan secara real-time.',
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: _TriHabitatMiniCard(
-                        title: 'Litosfer',
-                        valueText: forecast.soilText,
-                        dotColor: climate.accentHighlight,
-                        climate: climate,
-                        onTap: () => _showHabitatDetailSheet(
-                          context,
+                      const SizedBox(width: 9),
+                      Expanded(
+                        child: _TriHabitatMiniCard(
                           title: 'Litosfer',
-                          value: forecast.soilText,
-                          description:
-                              'Pemantauan kejenuhan air dalam tanah & stabilitas lereng terhadap risiko longsor.',
+                          valueText: forecast.soilText,
+                          dotColor: climate.accentHighlight,
+                          climate: climate,
+                          onTap: () => _showHabitatDetailSheet(
+                            context,
+                            title: 'Litosfer',
+                            value: forecast.soilText,
+                            description:
+                                'Pemantauan kejenuhan air dalam tanah & stabilitas lereng terhadap risiko longsor.',
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 20),
 
                 // 5. Header Prakiraan Cuaca 5 Hari + Mei 2026
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        'Prakiraan Cuaca 5 Hari',
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontSize: 15.5,
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: -0.3,
-                          color: climate.primaryDark,
+                StaggeredEntrance(
+                  delayMs: 135,
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Prakiraan Cuaca 5 Hari',
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                            fontSize: 15.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                            color: climate.primaryDark,
+                          ),
                         ),
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => ctrl.selectTab(DashboardTab.calendar),
-                      child: Text(
-                        'Mei 2026',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w800,
-                          color: climate.primaryBrand,
+                      const SizedBox(width: 8),
+                      GestureDetector(
+                        onTap: () => ctrl.selectTab(DashboardTab.calendar),
+                        child: Text(
+                          'Mei 2026',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w800,
+                            color: climate.primaryBrand,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 12),
 
                 // 6. Baris 5 Kapsul Vertikal Prakiraan Cuaca Interaktif
-                Row(
-                  children: List.generate(ctrl.forecastDays.length, (index) {
-                    final day = ctrl.forecastDays[index];
-                    final isSelected = ctrl.selectedForecastIndex == index;
-                    return Expanded(
-                      child: Padding(
-                        padding: EdgeInsets.only(
-                          right: index == ctrl.forecastDays.length - 1 ? 0 : 8,
+                StaggeredEntrance(
+                  delayMs: 170,
+                  child: Row(
+                    children: List.generate(ctrl.forecastDays.length, (index) {
+                      final day = ctrl.forecastDays[index];
+                      final isSelected = ctrl.selectedForecastIndex == index;
+                      return Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(
+                            right: index == ctrl.forecastDays.length - 1
+                                ? 0
+                                : 8,
+                          ),
+                          child: _ForecastDayCapsule(
+                            day: day,
+                            isSelected: isSelected,
+                            climate: climate,
+                            onTap: () => ctrl.selectForecastDay(index),
+                          ),
                         ),
-                        child: _ForecastDayCapsule(
-                          day: day,
-                          isSelected: isSelected,
-                          climate: climate,
-                          onTap: () => ctrl.selectForecastDay(index),
-                        ),
-                      ),
-                    );
-                  }),
+                      );
+                    }),
+                  ),
                 ),
               ],
             ),
@@ -437,6 +446,216 @@ class _HomeTabScreenState extends State<HomeTabScreen>
       ),
     );
   }
+}
+
+/// Painter vektor presisi node 1248 dari login_ui.figcraft (Screenshot 2)
+/// dengan animasi idle halus pada kubah awan biru & 3 tangkai tetesan hujan.
+class _AnimatedDashboardTopHeaderPainter extends CustomPainter {
+  const _AnimatedDashboardTopHeaderPainter({
+    required this.climate,
+    required this.progress,
+  });
+
+  final ClimatePalette climate;
+  final double progress;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final sx = size.width / 390.0;
+    final sy = size.height / 196.0;
+    final s1 = math.sin(progress * math.pi) * 4.5 * sy;
+    final s2 = math.cos(progress * math.pi) * 3.8 * sy;
+
+    if (climate.isOrange) {
+      // Varian Kemarau Panjang / Cuaca Panas (Oren) - Presisi SVG Node 1304
+      // 1. Sunbeam Peach Halo (#FBE3C8)
+      final haloPath = Path()
+        ..moveTo(0, 0)
+        ..lineTo(390 * sx, 0)
+        ..lineTo(390 * sx, 154 * sy + s1 * 0.5)
+        ..cubicTo(
+          296.67 * sx,
+          174 * sy + s1,
+          204.67 * sx,
+          167.33 * sy - s2,
+          114 * sx,
+          134 * sy + s1 * 0.6,
+        )
+        ..cubicTo(
+          67.33 * sx,
+          116.67 * sy,
+          29.33 * sx,
+          114.67 * sy,
+          0,
+          128 * sy,
+        )
+        ..close();
+      canvas.drawPath(haloPath, Paint()..color = const Color(0xFFFBE3C8));
+
+      // 2. Sun Burnt Left Arc (#B52D1E)
+      final leftArc = Path()
+        ..moveTo(0, 0)
+        ..lineTo(184 * sx, 0)
+        ..cubicTo(
+          164 * sx,
+          78.67 * sy + s2 * 0.5,
+          102.67 * sx,
+          116 * sy - s1 * 0.5,
+          0,
+          112 * sy,
+        )
+        ..close();
+      canvas.drawPath(leftArc, Paint()..color = const Color(0xFFB52D1E));
+
+      // 3. Solar Orange Main Disc (#DF4E26) - center (259, 55), r = 107
+      canvas.drawCircle(
+        Offset(259 * sx, 55 * sy + s1 * 0.4),
+        (107 + progress * 2.0) * sx,
+        Paint()..color = const Color(0xFFDF4E26),
+      );
+
+      // 4. Solar Gold Inner Sun (#F4A938) - center (277, 39), r = 63
+      canvas.drawCircle(
+        Offset(277 * sx, 39 * sy - s2 * 0.4),
+        (63 + progress * 2.5) * sx,
+        Paint()..color = const Color(0xFFF4A938),
+      );
+
+      // 5. Tiga Sinar Matahari Bawah (Node 1309, 1310, 1311) dengan animasi idle
+      final rayShift = s1 * 1.1;
+      canvas.drawLine(
+        Offset(170 * sx, 146 * sy),
+        Offset(162 * sx, 170 * sy + rayShift),
+        Paint()
+          ..color = const Color(0xFFB52D1E)
+          ..strokeWidth = 2.5 * sx
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawLine(
+        Offset(254 * sx, 162 * sy),
+        Offset(254 * sx, 184 * sy - s2 * 1.2),
+        Paint()
+          ..color = const Color(0xFFDF4E26)
+          ..strokeWidth = 2.5 * sx
+          ..strokeCap = StrokeCap.round,
+      );
+      canvas.drawLine(
+        Offset(326 * sx, 146 * sy),
+        Offset(334 * sx, 170 * sy + rayShift),
+        Paint()
+          ..color = const Color(0xFFF4A938)
+          ..strokeWidth = 2.5 * sx
+          ..strokeCap = StrokeCap.round,
+      );
+      return;
+    }
+
+    // 1. Rain Mist Left Base (#BAD8EE) - x: -14, y: -16, w: 192, h: 152
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(
+        Rect.fromLTWH(-14 * sx, -16 * sy, 192 * sx, 152 * sy + s1 * 0.5),
+        bottomRight: Radius.circular(84 * sx),
+        bottomLeft: Radius.circular(56 * sx),
+      ),
+      Paint()..color = const Color(0xFFBAD8EE),
+    );
+
+    // 2. Rain Navy Cloud Arch (#152F4E) - x: 42, y: -20, w: 162, h: 156
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(
+        Rect.fromLTWH(42 * sx, -20 * sy, 162 * sx, 156 * sy - s2 * 0.5),
+        bottomLeft: Radius.circular(81 * sx),
+        bottomRight: Radius.circular(81 * sx),
+      ),
+      Paint()..color = const Color(0xFF152F4E),
+    );
+
+    // 3. Rain Cobalt Dome (#255E94) - x: 154, y: -10, w: 154, h: 168
+    canvas.drawRRect(
+      RRect.fromRectAndCorners(
+        Rect.fromLTWH(154 * sx, -10 * sy, 154 * sx, 168 * sy + s1 * 0.7),
+        bottomLeft: Radius.circular(77 * sx),
+        bottomRight: Radius.circular(77 * sx),
+      ),
+      Paint()..color = const Color(0xFF255E94),
+    );
+
+    // 4. Rain Sky Blue Orb (#64AEE0) - x: 254, y: -26, w: 156, h: 156
+    canvas.drawOval(
+      Rect.fromLTWH(
+        254 * sx + s2 * 0.4,
+        -26 * sy + s1 * 0.4,
+        156 * sx,
+        156 * sy,
+      ),
+      Paint()..color = const Color(0xFF64AEE0),
+    );
+
+    // 5. Rain Ice Highlight (#91C8EC) - x: 226, y: 66, w: 78, h: 78
+    canvas.drawOval(
+      Rect.fromLTWH(
+        226 * sx - s1 * 0.5,
+        66 * sy - s2 * 0.5,
+        78 * sx,
+        78 * sy,
+      ),
+      Paint()..color = const Color(0xFF91C8EC),
+    );
+
+    // 6. Tangkai & Tetesan Hujan 1 (x: 102, y: 136..168, tip y: 176)
+    final drop1Shift = s1 * 1.3;
+    canvas.drawLine(
+      Offset(102 * sx, 134 * sy),
+      Offset(102 * sx, 168 * sy + drop1Shift),
+      Paint()
+        ..color = const Color(0xFF152F4E)
+        ..strokeWidth = 2.0 * sx
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      Offset(102 * sx, 176 * sy + drop1Shift),
+      4.2 * sx,
+      Paint()..color = const Color(0xFF64AEE0),
+    );
+
+    // 7. Tangkai & Tetesan Hujan 2 (x: 204, y: 156..180, tip y: 188)
+    final drop2Shift = -s2 * 1.2;
+    canvas.drawLine(
+      Offset(204 * sx, 154 * sy),
+      Offset(204 * sx, 180 * sy + drop2Shift),
+      Paint()
+        ..color = const Color(0xFF255E94)
+        ..strokeWidth = 2.0 * sx
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      Offset(204 * sx, 188 * sy + drop2Shift),
+      4.2 * sx,
+      Paint()..color = const Color(0xFF255E94),
+    );
+
+    // 8. Tangkai & Tetesan Hujan 3 (x: 265, y: 142..176, tip y: 184)
+    final drop3Shift = s2 * 1.4;
+    canvas.drawLine(
+      Offset(265 * sx, 140 * sy),
+      Offset(265 * sx, 176 * sy + drop3Shift),
+      Paint()
+        ..color = const Color(0xFF64AEE0)
+        ..strokeWidth = 2.0 * sx
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawCircle(
+      Offset(265 * sx, 184 * sy + drop3Shift),
+      4.2 * sx,
+      Paint()..color = const Color(0xFF152F4E),
+    );
+  }
+
+  @override
+  bool shouldRepaint(
+    covariant _AnimatedDashboardTopHeaderPainter oldDelegate,
+  ) =>
+      oldDelegate.progress != progress || oldDelegate.climate != climate;
 }
 
 class _TriHabitatMiniCard extends StatelessWidget {
@@ -531,7 +750,7 @@ class _ForecastDayCapsule extends StatelessWidget {
     return TactilePressable(
       onTap: onTap,
       child: AnimatedContainer(
-        duration: const Duration(milliseconds: 260),
+        duration: const Duration(milliseconds: 240),
         curve: Curves.easeOutCubic,
         height: 196,
         padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 4),
@@ -579,8 +798,8 @@ class _ForecastDayCapsule extends StatelessWidget {
               ],
             ),
             AnimatedScale(
-              scale: isSelected ? 1.12 : 1.0,
-              duration: const Duration(milliseconds: 260),
+              scale: isSelected ? 1.1 : 1.0,
+              duration: const Duration(milliseconds: 240),
               curve: Curves.easeOutBack,
               child: Image.asset(
                 day.iconAsset,
