@@ -1,11 +1,11 @@
 {
-    "name": "ui_presu",
-    "short_name": "ui_presu",
+    "name": "T.H.A.L.I.A",
+    "short_name": "T.H.A.L.I.A",
     "start_url": ".",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "A new Flutter project.",
+    "background_color": "#F6F7F1",
+    "theme_color": "#5DBA79",
+    "description": "T.H.A.L.I.A - Tri-Habitat Analysis & Climate Forecasting Intelligence",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
     "icons": [
