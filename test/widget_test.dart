@@ -10,6 +10,7 @@ import 'package:ui_presu/models/dashboard_models.dart';
 import 'package:ui_presu/screens/splash_screen.dart';
 import 'package:ui_presu/services/mock_thalia_api_service.dart';
 import 'package:ui_presu/services/offline_cache_service.dart';
+import 'package:ui_presu/services/thalia_services.dart';
 import 'package:ui_presu/utils/privacy_guard.dart';
 import 'package:ui_presu/utils/validators.dart';
 
@@ -18,7 +19,7 @@ void main() {
       'SplashScreen displays THALIA text (slide down) then slides up logo and transitions to app',
       (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const ThaliaApp());
+    await tester.pumpWidget(ThaliaApp(services: ThaliaServices.mock()));
 
     // Fase 1: Teks THALIA muncul di awal dengan slide down
     await tester.pump(const Duration(milliseconds: 300));
@@ -51,7 +52,7 @@ void main() {
       'Full journey: Selamat Datang -> Masuk Akun (admin/123) -> Dashboard -> Forecast Day Animation',
       (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
-    await tester.pumpWidget(const ThaliaApp(showSplash: false));
+    await tester.pumpWidget(ThaliaApp(showSplash: false, services: ThaliaServices.mock()));
     await tester.pump(const Duration(milliseconds: 600));
 
     // 1. Mulai di Selamat Datang -> Klik Masuk ke Masuk Akun

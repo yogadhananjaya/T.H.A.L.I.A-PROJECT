@@ -10,9 +10,9 @@ final class ApiConfig {
   const ApiConfig._();
 
   /// true  = pakai data contoh bawaan aplikasi (tanpa server).
-  /// false = pakai API sungguhan di [baseUrl].
+  /// false = pakai API sungguhan di [baseUrl] (default).
   static const bool useMockData =
-      bool.fromEnvironment('THALIA_USE_MOCK', defaultValue: true);
+      bool.fromEnvironment('THALIA_USE_MOCK', defaultValue: false);
 
   /// Alamat server FastAPI, tanpa garis miring di akhir.
   /// Emulator Android: `10.0.2.2` berarti localhost laptop.
