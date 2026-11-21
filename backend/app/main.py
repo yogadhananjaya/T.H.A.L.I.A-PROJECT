@@ -50,6 +50,13 @@ app.add_middleware(
 
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
+from fastapi.responses import FileResponse
+import os as _os
+
+@app.get("/dashboard", include_in_schema=False)
+def dashboard():
+    return FileResponse(_os.path.join(_os.path.dirname(__file__), "static", "dashboard.html"))
+
 @app.get("/", tags=["Health Check"])
 def root():
     return {

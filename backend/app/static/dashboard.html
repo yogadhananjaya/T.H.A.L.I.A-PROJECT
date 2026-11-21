@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>T.H.A.L.I.A Control Dashboard</title>
+<style>
+  :root{--bg:#0b1220;--card:#131c2e;--line:#22304a;--txt:#e6edf7;--mut:#8b9bb4;
+        --safe:#22c55e;--alert:#f59e0b;--danger:#ef4444;--blue:#3b82f6}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:Segoe UI,system-ui,sans-serif}
+  header{padding:16px 24px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:8px}
+  h1{margin:0;font-size:20px} h1 small{color:var(--mut);font-weight:400;font-size:13px;margin-left:8px}
+  .wrap{padding:20px 24px;display:grid;gap:16px;grid-template-columns:repeat(12,1fr)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+  .c4{grid-column:span 4}.c6{grid-column:span 6}.c8{grid-column:span 8}.c12{grid-column:span 12}
+  @media(max-width:900px){.c4,.c6,.c8{grid-column:span 12}}
+  h2{margin:0 0 12px;font-size:14px;color:var(--mut);text-transform:uppercase;letter-spacing:.06em}
+  .pill{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:600}
+  .ok{background:#16a34a33;color:#4ade80}.warn{background:#f59e0b33;color:#fbbf24}.bad{background:#ef444433;color:#f87171}.gray{background:#64748b33;color:#94a3b8}
+  .big{font-size:34px;font-weight:700;padding:14px;border-radius:10px;text-align:center}
+  .big.Safe{background:#16a34a22;color:var(--safe)}.big.Alert{background:#f59e0b22;color:var(--alert)}.big.Danger{background:#ef444422;color:var(--danger);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.6}}
+  .grid5{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-top:12px}
+  .m{background:#0e1626;border-radius:8px;padding:10px;text-align:center}
+  .m b{display:block;font-size:20px}.m span{font-size:11px;color:var(--mut)}
+  .reason{margin-top:10px;font-size:13px;color:var(--mut);line-height:1.5}
+  button{background:var(--blue);color:#fff;border:0;border-radius:8px;padding:9px 14px;font-weight:600;cursor:pointer;margin:3px}
+  button:hover{filter:brightness(1.15)} button.g{background:#16a34a}button.y{background:#d97706}button.r{background:#dc2626}button.n{background:#475569}
+  table{width:100%;border-collapse:collapse;font-size:13px}
+  th,td{padding:8px 6px;text-align:left;border-bottom:1px solid var(--line);vertical-align:top}
+  th{color:var(--mut);font-weight:600}
+  code{font-size:11px;color:#93c5fd}
+  .kv{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;font-size:13px}.kv div:nth-child(odd){color:var(--mut)}
+  .cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .cmp .box{background:#0e1626;border-radius:8px;padding:12px;font-size:13px;line-height:1.7}
+  .cmp h3{margin:0 0 6px;font-size:13px}
+  .adv{margin-top:10px;font-size:13px;padding:10px;border-radius:8px;background:#f59e0b18;border:1px solid #f59e0b55}
+  #toast{position:fixed;bottom:20px;right:20px;background:#1e293b;border:1px solid var(--line);padding:12px 16px;border-radius:10px;display:none;max-width:420px;font-size:13px}
+</style>
+</head>
+<body>
+<header>
+  <h1>T.H.A.L.I.A <small>Tri-Habitat Analysis &amp; Climate Forecasting Intelligence</small></h1>
+  <div id="sys"></div>
+</header>
+
+<div class="wrap">
+  <div class="card c6">
+    <h2>Kondisi Sensor Terkini</h2>
+    <div id="status" class="big Safe">Menunggu data…</div>
+    <div class="grid5" id="metrics"></div>
+    <div class="reason" id="reason"></div>
+  </div>
+
+  <div class="card c6">
+    <h2>Blockchain (Hardhat Local)</h2>
+    <div class="kv" id="chain"></div>
+    <div id="chainhelp" class="reason"></div>
+  </div>
+
+  <div class="card c12">
+    <h2>Simulasi Skenario (untuk demo juri)</h2>
+    <button class="g" onclick="inject('safe_normal')">Aman</button>
+    <button class="y" onclick="inject('alert_rain')">Waspada – Hujan</button>
+    <button class="y" onclick="inject('alert_moisture')">Waspada – Tanah Lembap</button>
+    <button class="r" onclick="inject('danger_landslide')">BAHAYA – Longsor</button>
+    <button class="r" onclick="inject('danger_flashflood')">BAHAYA – Banjir Bandang</button>
+    <button class="n" onclick="resetData()">Reset Semua Data</button>
+  </div>
+
+  <div class="card c12">
+    <h2>Sensor Lokal vs BMKG (Side-by-Side)</h2>
+    <div class="cmp" id="cmp"></div>
+    <div class="adv" id="adv" style="display:none"></div>
+  </div>
+
+  <div class="card c12">
+    <h2>Riwayat Insiden &amp; Bukti Blockchain</h2>
+    <table>
+      <thead><tr><th>#</th><th>Waktu</th><th>Level</th><th>Lokasi</th><th>Blockchain</th><th>Tx Hash</th><th>Notif FCM</th><th>Verifikasi</th></tr></thead>
+      <tbody id="alerts"></tbody>
+    </table>
+  </div>
+</div>
+<div id="toast"></div>
+
+<script>
+const API = '/api/v1';
+const $ = id => document.getElementById(id);
+const lvl = {Safe:['AMAN','ok'],Alert:['WASPADA','warn'],Danger:['BAHAYA','bad']};
+const chainPill = s => s==='CONFIRMED'?'<span class="pill ok">CONFIRMED ✔</span>':
+                       s==='SIMULATED'?'<span class="pill warn">SIMULATED (palsu)</span>':
+                       '<span class="pill bad">'+s+'</span>';
+function toast(msg){const t=$('toast');t.innerHTML=msg;t.style.display='block';clearTimeout(t._h);t._h=setTimeout(()=>t.style.display='none',7000)}
+async function j(url,opt){const r=await fetch(API+url,opt);if(!r.ok)throw new Error(r.status);return r.json()}
+
+async function inject(s){
+  try{const d=await j('/simulator/inject',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({scenario:s})});
+      toast('Skenario <b>'+s+'</b> terkirim → status: <b>'+d.status+'</b>');refresh();}
+  catch(e){toast('Gagal: '+e.message)}
+}
+async function resetData(){
+  if(!confirm('Hapus semua data telemetry & insiden?'))return;
+  await j('/simulator/reset',{method:'POST'});toast('Data direset.');refresh();
+}
+async function verify(id){
+  const d=await j('/alerts/'+id+'/verify');
+  const ok=d.is_tamper_proof_valid;
+  toast((ok?'✅ ':'❌ ')+'<b>Insiden #'+id+'</b>: '+d.audit_verdict+(d.blockchain_event_id?'<br>Event on-chain: #'+d.blockchain_event_id:''));
+}
+
+async function refresh(){
+  // blockchain status
+  let ch=null;
+  try{ch=await j('/alerts/summary/blockchain');
+    const ready=ch.node_connected&&ch.contract_deployed;
+    $('sys').innerHTML='<span class="pill ok">API Online</span> '+
+      (ready?'<span class="pill ok">Blockchain Siap</span>':'<span class="pill bad">Blockchain Belum Siap</span>');
+    $('chain').innerHTML=
+      '<div>Node Hardhat</div><div>'+(ch.node_connected?'<span class="pill ok">Terhubung</span>':'<span class="pill bad">MATI</span>')+'</div>'+
+      '<div>Smart Contract</div><div>'+(ch.contract_deployed?'<span class="pill ok">Terdeploy</span>':'<span class="pill bad">Belum di-deploy</span>')+'</div>'+
+      '<div>Alamat</div><div><code>'+(ch.contract_address||'-')+'</code></div>'+
+      '<div>Block terakhir</div><div>'+(ch.block_number??'-')+'</div>'+
+      '<div>Alert tercatat on-chain</div><div><b>'+(ch.total_alerts_on_chain??'-')+'</b></div>';
+    $('chainhelp').innerHTML=!ch.node_connected?'⚠ Jalankan <b>run_blockchain.bat</b> dan biarkan terbuka.':
+      !ch.contract_deployed?'⚠ Jalankan <b>deploy_contract.bat</b>.':'Siap. Klik skenario BAHAYA, lalu cek tabel di bawah: harus <b>CONFIRMED</b>.';
+  }catch(e){$('sys').innerHTML='<span class="pill bad">API Offline</span>'}
+
+  // latest telemetry
+  try{
+    const t=await j('/telemetry/latest');
+    if(t){
+      const [name]=lvl[t.status]||[t.status];
+      $('status').className='big '+t.status;$('status').textContent=name;
+      $('metrics').innerHTML=
+       [['Hujan',t.rainfall_mm_h+' mm/j'],['Tanah',t.soil_moisture_pct+' %'],['Suhu',t.temperature_c+' °C'],
+        ['Lembap',t.humidity_pct+' %'],['Tekanan',t.pressure_hpa+' hPa']].map(x=>'<div class="m"><b>'+x[1]+'</b><span>'+x[0]+'</span></div>').join('');
+      $('reason').textContent=t.status_reason+'  ('+t.location_name+')';
+    }
+  }catch(e){}
+
+  // comparison
+  try{
+    const c=await j('/comparison');const l=c.local_telemetry,b=c.bmkg_regional_forecast;
+    $('cmp').innerHTML=
+     '<div class="box"><h3>📍 Sensor Lokal T.H.A.L.I.A</h3>Hujan: <b>'+l.rainfall_mm_h+' mm/j</b><br>Kejenuhan tanah: <b>'+l.soil_moisture_pct+'%</b><br>Suhu: '+l.temperature_c+'°C · Lembap: '+l.humidity_pct+'%<br>Status: <b>'+l.status+'</b></div>'+
+     '<div class="box"><h3>🛰 BMKG (Regional)</h3>Cuaca: <b>'+b.weather_desc+'</b><br>Peluang hujan: <b>'+b.rainfall_probability_pct+'%</b><br>Suhu: '+b.temperature_c+'°C · Lembap: '+b.humidity_pct+'%<br><small>'+b.source+'</small></div>';
+    $('adv').style.display='block';$('adv').textContent=c.granularity_advantage;
+  }catch(e){}
+
+  // alerts
+  try{
+    const a=await j('/alerts');
+    $('alerts').innerHTML=a.length?a.map(x=>{
+      const [n,c]=lvl[x.severity]||[x.severity,'gray'];
+      const tx=x.blockchain_status==='CONFIRMED'?'<code>'+x.blockchain_tx_hash.slice(0,18)+'…</code>':'<span style="color:var(--mut)">–</span>';
+      return '<tr><td>'+x.id+'</td><td>'+x.timestamp.replace('T',' ').slice(0,19)+'</td><td><span class="pill '+c+'">'+n+'</span></td><td>'+x.location_name+'</td><td>'+chainPill(x.blockchain_status)+(x.blockchain_event_id&&x.blockchain_status==='CONFIRMED'?' #'+x.blockchain_event_id:'')+'</td><td>'+tx+'</td><td>'+x.fcm_status+'</td><td><button onclick="verify('+x.id+')">Verifikasi</button></td></tr>';
+    }).join(''):'<tr><td colspan="8" style="color:var(--mut)">Belum ada insiden. Klik skenario WASPADA/BAHAYA di atas.</td></tr>';
+  }catch(e){}
+}
+refresh();setInterval(refresh,3000);
+</script>
+</body>
+</html>

@@ -44,7 +44,20 @@ def verify_alert_on_blockchain(alert_id: int, db: Session = Depends(get_db)):
     if not incident:
         raise HTTPException(status_code=404, detail="Incident alert not found")
 
-    event_id = incident.blockchain_event_id or 1
+    if incident.blockchain_status != "CONFIRMED":
+        return {
+            "incident_id": incident.id,
+            "location": incident.location_name,
+            "severity": incident.severity,
+            "timestamp": incident.timestamp.isoformat(),
+            "database_hash": incident.data_hash,
+            "blockchain_event_id": None,
+            "blockchain_tx_hash": None,
+            "is_tamper_proof_valid": False,
+            "audit_verdict": f"NOT_ON_CHAIN ({incident.blockchain_status}): data ini tidak pernah tercatat di blockchain"
+        }
+
+    event_id = incident.blockchain_event_id
     is_valid = BlockchainService.verify_on_chain(event_id, incident.data_hash)
 
     return {
@@ -58,6 +71,11 @@ def verify_alert_on_blockchain(alert_id: int, db: Session = Depends(get_db)):
         "is_tamper_proof_valid": is_valid,
         "audit_verdict": "VERIFIED & UNTAMPERED" if is_valid else "VERIFICATION_FAILED"
     }
+
+@router.get("/summary/blockchain")
+def get_blockchain_status():
+    """Status node Hardhat & smart contract (untuk dashboard)."""
+    return BlockchainService.get_status()
 
 @router.get("/summary/stats")
 def get_alert_summary(db: Session = Depends(get_db)):

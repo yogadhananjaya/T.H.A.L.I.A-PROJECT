@@ -20,6 +20,15 @@ class ScenarioTriggerRequest(BaseModel):
     scenario: DemoScenario
     location: str = "Desa Sukamaju, Titik Rawan Lereng A"
 
+@router.post("/reset")
+def reset_demo_data(db: Session = Depends(get_db)):
+    """Hapus semua telemetry & insiden di database (untuk demo yang bersih)."""
+    from app.db.models import TelemetryLog, DisasterIncident
+    t = db.query(TelemetryLog).delete()
+    i = db.query(DisasterIncident).delete()
+    db.commit()
+    return {"deleted_telemetry": t, "deleted_incidents": i}
+
 @router.post("/inject", response_model=TelemetryResponse)
 def inject_demo_scenario(
     req: ScenarioTriggerRequest,

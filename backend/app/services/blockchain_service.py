@@ -92,23 +92,28 @@ class BlockchainService:
             # bytes32 representation
             hash_bytes = bytes.fromhex(data_hash_hex[2:] if data_hash_hex.startswith("0x") else data_hash_hex)
 
-            tx_data = cls._contract.functions.logAlert(
+            fn = cls._contract.functions.logAlert(
                 hash_bytes,
                 location,
                 habitat_summary[:100],
                 severity_code
-            ).build_transaction({
+            )
+            gas_est = fn.estimate_gas({'from': sender})
+            tx_data = fn.build_transaction({
                 'from': sender,
                 'nonce': nonce,
-                'gas': 300000,
+                'gas': int(gas_est * 1.3) + 20000,
                 'gasPrice': w3.eth.gas_price
             })
 
             signed_tx = w3.eth.account.sign_transaction(tx_data, private_key=settings.BLOCKCHAIN_PRIVATE_KEY)
-            tx_hash = w3.eth.send_raw_transaction(signed_tx.rawTransaction)
+            raw = getattr(signed_tx, "raw_transaction", None) or getattr(signed_tx, "rawTransaction")
+            tx_hash = w3.eth.send_raw_transaction(raw)
             
             # Wait for receipt on local Hardhat
             receipt = w3.eth.wait_for_transaction_receipt(tx_hash, timeout=10)
+            if receipt.status != 1:
+                raise RuntimeError("Transaction reverted on-chain")
             
             total_alerts = cls._contract.functions.totalAlerts().call()
 
@@ -117,7 +122,7 @@ class BlockchainService:
             return {
                 "status": "CONFIRMED",
                 "data_hash": data_hash_hex,
-                "tx_hash": tx_hash.hex(),
+                "tx_hash": "0x" + tx_hash.hex().removeprefix("0x"),
                 "event_id": total_alerts,
                 "block_number": receipt.blockNumber,
                 "gas_used": receipt.gasUsed
@@ -131,6 +136,38 @@ class BlockchainService:
                 "event_id": None,
                 "error": str(e)
             }
+
+    @classmethod
+    def get_status(cls) -> Dict[str, Any]:
+        """Health info of the blockchain layer for the dashboard."""
+        info = {
+            "node_connected": False,
+            "rpc_url": settings.HARDHAT_RPC_URL,
+            "contract_deployed": False,
+            "contract_address": None,
+            "block_number": None,
+            "total_alerts_on_chain": None,
+        }
+        try:
+            w3 = cls.get_w3()
+            if not w3.is_connected():
+                return info
+            info["node_connected"] = True
+            info["block_number"] = w3.eth.block_number
+            if cls._contract is None:
+                cls._init_contract()
+            if cls._contract is not None:
+                code = w3.eth.get_code(cls._contract.address)
+                if code and len(code) > 0:
+                    info["contract_deployed"] = True
+                    info["contract_address"] = cls._contract.address
+                    info["total_alerts_on_chain"] = cls._contract.functions.totalAlerts().call()
+                else:
+                    # Stale contract_info.json (node was restarted) -> force reload next time
+                    cls._contract = None
+        except Exception as e:
+            logger.error(f"Blockchain status check failed: {e}")
+        return info
 
     @classmethod
     def verify_on_chain(cls, event_id: int, data_hash_hex: str) -> bool:
