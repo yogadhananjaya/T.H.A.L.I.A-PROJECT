@@ -23,40 +23,57 @@ WIFI_PASS = getattr(_s, "WIFI_PASS", "")
 API_URL = getattr(_s, "API_URL", "http://192.168.43.15:8000/api/v1/telemetry")
 
 NODE_ID = getattr(_s, "NODE_ID", "ESP32-NODE-01")
-LOCATION_NAME = getattr(_s, "LOCATION_NAME", "Desa Sukamaju, Lereng Selatan")
-LATITUDE = getattr(_s, "LATITUDE", -6.9175)
-LONGITUDE = getattr(_s, "LONGITUDE", 107.6191)
+LOCATION_NAME = getattr(_s, "LOCATION_NAME", "Cibatu, Cikarang Selatan, Bekasi")
+LATITUDE = getattr(_s, "LATITUDE", -6.3378)
+LONGITUDE = getattr(_s, "LONGITUDE", 107.1541)
 
-# Sensor Tanah (Soil Moisture di P34 - WAJIB ADC1 agar tidak bentrok dengan Wi-Fi)
-USE_SOIL_SENSOR = True
-SOIL_DRY = 3200  # Kalibrasi: nilai ADC saat kering di udara
-SOIL_WET = 1300  # Kalibrasi: nilai ADC saat dicelup air (2-3 cm)
+# Sensor Hujan FC-37 (WAJIB VCC 3V3 — JANGAN 5V!)
+# - DO -> GPIO 23 (deteksi hujan cepat + LED indikator)
+# - AO -> GPIO 35 (ADC1 input-only, intensitas kebasahan 0-100%)
+RAIN_DRY = 4095  # Kalibrasi: ADC saat plat kering
+RAIN_WET = 1200  # Kalibrasi: ADC saat plat basah merata
 
-# Mapping Raindrop Digital (DO) -> Intensitas hujan (mm/jam) sesuai rules.py backend
-RAIN_WET_MM_H = 55.0  # >= 50.0 memicu Torrential Rain di DisasterRuleEngine
-RAIN_DRY_MM_H = 0.0
+# Sensor Tanah Soil Moisture (AOUT -> GPIO 34, WAJIB ADC1 agar tidak bentrok Wi-Fi)
+SOIL_DRY = 3200  # Kalibrasi: ADC saat media uji kering
+SOIL_WET = 1300  # Kalibrasi: ADC saat media uji jenuh air
 
-# Interval & proteksi jaringan
+# Penghalusan khusus Soil Moisture (moving average 3 kiriman) untuk redam fluktuasi sekitar ambang 65%
+SOIL_SMOOTH_WINDOW = 3
+
+# Interval & proteksi jaringan (10 detik sesuai proposal & dokumentasi backend)
 SEND_TO_API = True
-SEND_INTERVAL_MS = 3000
+SEND_INTERVAL_MS = 10000
 WIFI_RETRY_COOLDOWN_MS = 30000
 
 
 # ==============================================================================
-# 2. HELPER SENSOR
+# 2. HELPER SENSOR & PENGHALUSAN
 # ==============================================================================
-def baca_soil_akurat(adc_pin, samples=15):
+class MovingAverage:
+    def __init__(self, size=3):
+        self.size = max(1, size)
+        self.buf = []
+
+    def update(self, val):
+        self.buf.append(val)
+        if len(self.buf) > self.size:
+            self.buf.pop(0)
+        return round(sum(self.buf) / len(self.buf), 1)
+
+
+def baca_adc_persen(adc_pin, dry_val, wet_val, samples=15):
+    """Baca rata-rata 15 sampel ADC dan balik ke persen 0-100% (ADC tinggi = kering)."""
     total = 0
     for _ in range(samples):
         total += adc_pin.read()
         time.sleep_ms(5)
-    rata2 = total // samples
+    raw = total // samples
 
-    selisih = SOIL_DRY - SOIL_WET
+    selisih = dry_val - wet_val
     if selisih == 0:
-        return rata2, 0.0
-    pct = max(0.0, min(100.0, ((SOIL_DRY - rata2) / selisih) * 100.0))
-    return rata2, round(pct, 1)
+        return raw, 0.0
+    pct = max(0.0, min(100.0, ((dry_val - raw) / selisih) * 100.0))
+    return raw, round(pct, 1)
 
 
 class BME_BMP280:
@@ -148,12 +165,18 @@ def validasi_bme(temp, press, hum):
 print("[1/3] Menyiapkan pin & sensor...")
 led = Pin(2, Pin.OUT)
 led.value(0)
+
+# FC-37 Raindrop: DO (GPIO 23) + AO (GPIO 35 / ADC1)
 rain_pin = Pin(23, Pin.IN)
+rain_adc = ADC(Pin(35))
+rain_adc.atten(ADC.ATTN_11DB)
 
-soil_adc = ADC(Pin(34)) if USE_SOIL_SENSOR else None
-if soil_adc:
-    soil_adc.atten(ADC.ATTN_11DB)
+# Soil Moisture: AOUT (GPIO 34 / ADC1)
+soil_adc = ADC(Pin(34))
+soil_adc.atten(ADC.ATTN_11DB)
+soil_smooth = MovingAverage(SOIL_SMOOTH_WINDOW)
 
+# BME280: I2C SDA=21, SCL=22
 i2c = SoftI2C(scl=Pin(22), sda=Pin(21), freq=50000)
 bme = None
 try:
@@ -222,6 +245,11 @@ def post_telemetry(payload_dict):
         except TypeError:
             res = requests.post(API_URL, data=body, headers=headers)
         print(f" -> API {res.status_code}")
+        if res.status_code != 200:
+            try:
+                print(f" -> API Body: {res.text[:150]}")
+            except Exception:
+                pass
     except Exception as e:
         print(f" -> API Error: {e}")
     finally:
@@ -246,9 +274,8 @@ led_state = False
 while True:
     now = time.ticks_ms()
 
-    # 1. Raindrop real-time + LED indikator (GPIO 2)
-    rain_raw = rain_pin.value()
-    is_raining = rain_raw == 0
+    # 1. Raindrop DO real-time (GPIO 23) -> LED indikator (GPIO 2)
+    is_raining = rain_pin.value() == 0
     if is_raining:
         if time.ticks_diff(now, last_blink) >= 80:
             led_state = not led_state
@@ -258,7 +285,7 @@ while True:
         led.value(0)
         led_state = False
 
-    # 2. Baca sensor & kirim telemetri secara periodik
+    # 2. Baca sensor & kirim telemetri setiap 10 detik
     if time.ticks_diff(now, last_send) >= SEND_INTERVAL_MS:
         if bme is None:
             try:
@@ -275,10 +302,14 @@ while True:
                 print(" ⚠️ Koneksi BME280 terputus, akan reconnect otomatis...")
                 bme = None
 
-        soil_raw, soil_pct = baca_soil_akurat(soil_adc) if soil_adc else (0, 0.0)
-        rainfall_mm_h = RAIN_WET_MM_H if is_raining else RAIN_DRY_MM_H
+        # Baca FC-37 AO (GPIO 35): langsung 15-sample ADC (tanpa moving average agar respons demo instan)
+        rain_raw, rainfall_pct = baca_adc_persen(rain_adc, RAIN_DRY, RAIN_WET)
 
-        # Susun payload flat sesuai schema `TelemetryCreate` di backend/app/schemas/telemetry.py
+        # Baca Soil Moisture (GPIO 34): 15-sample ADC + moving average 3 kiriman
+        soil_raw, soil_pct_now = baca_adc_persen(soil_adc, SOIL_DRY, SOIL_WET)
+        soil_pct = soil_smooth.update(soil_pct_now)
+
+        # Jangan kirim data lama jika BME280 error; lewati pengiriman hingga sensor valid
         if validasi_bme(temp, press, hum):
             payload = {
                 "node_id": NODE_ID,
@@ -288,7 +319,8 @@ while True:
                 "temperature_c": round(temp, 2),
                 "humidity_pct": round(hum, 1),
                 "pressure_hpa": round(press, 1),
-                "rainfall_mm_h": rainfall_mm_h,
+                "rainfall_pct": rainfall_pct,
+                "is_raining": is_raining,
                 "rainfall_raw": rain_raw,
                 "soil_moisture_pct": soil_pct,
                 "soil_raw": soil_raw,
@@ -303,7 +335,8 @@ while True:
         else:
             print(
                 f"[SKIP API] Data BME280 belum valid (T={temp}, P={press}, H={hum}) | "
-                f"Rain={rain_raw} | Soil={soil_pct}% ({soil_raw})"
+                f"Rain={rainfall_pct}% (ADC={rain_raw}, DO={is_raining}) | "
+                f"Soil={soil_pct}% (ADC={soil_raw})"
             )
 
         gc.collect()  # Cegah fragmentasi RAM / MemoryError pada run 24 jam

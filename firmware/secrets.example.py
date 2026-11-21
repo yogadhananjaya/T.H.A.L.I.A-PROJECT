@@ -10,8 +10,8 @@ WIFI_PASS = "password-hotspot"
 # atau ganti dengan URL publik jika backend sudah di-deploy ke cloud.
 API_URL = "http://192.168.43.15:8000/api/v1/telemetry"
 
-# Identitas & lokasi node (opsional, default mengikuti skema backend)
+# Identitas & lokasi node (default sama dengan backend Cibatu, Cikarang Selatan)
 NODE_ID = "ESP32-NODE-01"
-LOCATION_NAME = "Desa Sukamaju, Lereng Selatan"
-LATITUDE = -6.9175
-LONGITUDE = 107.6191
+LOCATION_NAME = "Cibatu, Cikarang Selatan, Bekasi"
+LATITUDE = -6.3378
+LONGITUDE = 107.1541
