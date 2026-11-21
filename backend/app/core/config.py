@@ -1,10 +1,10 @@
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-_ENV_FILE = os.path.join(
-    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-    ".env",
+_BACKEND_DIR = os.path.dirname(
+    os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 )
+_ENV_FILE = os.path.join(_BACKEND_DIR, ".env")
 
 
 class Settings(BaseSettings):
@@ -41,7 +41,10 @@ class Settings(BaseSettings):
     DEFAULT_LON: float = float(os.getenv("DEFAULT_LON", "107.1541"))
     
     # Firebase Cloud Messaging (FCM)
-    FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase_service_account.json")
+    FIREBASE_CREDENTIALS_PATH: str = os.getenv(
+        "FIREBASE_CREDENTIALS_PATH",
+        os.path.join(_BACKEND_DIR, "firebase_service_account.json"),
+    )
     
     # Thresholds for Disaster Classification
     # Atmosphere

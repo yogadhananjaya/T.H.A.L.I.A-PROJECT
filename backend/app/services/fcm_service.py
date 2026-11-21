@@ -13,13 +13,25 @@ class FCMService:
     _initialized = False
 
     @classmethod
+    def _resolve_credentials_path(cls) -> str:
+        raw_path = settings.FIREBASE_CREDENTIALS_PATH
+        if os.path.exists(raw_path):
+            return raw_path
+        backend_dir = os.path.dirname(
+            os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        )
+        candidate = os.path.join(backend_dir, raw_path)
+        return candidate if os.path.exists(candidate) else raw_path
+
+    @classmethod
     def _init_firebase(cls):
         if cls._initialized:
             return True
 
-        if not os.path.exists(settings.FIREBASE_CREDENTIALS_PATH):
+        cred_path = cls._resolve_credentials_path()
+        if not os.path.exists(cred_path):
             logger.warning(
-                f"FCM credentials file '{settings.FIREBASE_CREDENTIALS_PATH}' not found. "
+                f"FCM credentials file '{cred_path}' not found. "
                 "FCM will run in Mock Mode (simulated broadcast for hackathon demo)."
             )
             return False
@@ -28,7 +40,7 @@ class FCMService:
             import firebase_admin
             from firebase_admin import credentials
             if not firebase_admin._apps:
-                cred = credentials.Certificate(settings.FIREBASE_CREDENTIALS_PATH)
+                cred = credentials.Certificate(cred_path)
                 firebase_admin.initialize_app(cred)
             cls._initialized = True
             logger.info("Firebase Admin SDK initialized successfully.")
