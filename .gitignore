@@ -1,0 +1,23 @@
+# Virtual Environment
+venv/
+backend/venv/
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+*.db
+*.sqlite3
+
+# Node & Blockchain
+node_modules/
+blockchain/node_modules/
+blockchain/artifacts/
+blockchain/cache/
+
+# Environment and Secrets
+.env
+firebase_service_account.json
+
+# IDE
+.vscode/
+.idea/

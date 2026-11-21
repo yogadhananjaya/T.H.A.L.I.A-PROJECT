@@ -1,0 +1,15 @@
+{
+  "name": "thalia-blockchain",
+  "version": "1.0.0",
+  "description": "THALIA Blockchain Layer - Hardhat and Solidity Smart Contract for Disaster Audit Trail",
+  "main": "index.js",
+  "scripts": {
+    "node": "hardhat node",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js --network localhost"
+  },
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.22.2"
+  }
+}
