@@ -141,29 +141,40 @@ class LoginScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 24),
 
-                // Banner feedback interaktif bila tombol ditekan
+                // Banner feedback interaktif bila tombol ditekan / validasi
                 if (controller.feedbackBanner != null) ...[
-                  Container(
-                    width: double.infinity,
-                    margin: const EdgeInsets.only(bottom: 14),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 10,
-                    ),
-                    decoration: BoxDecoration(
-                      color: ThaliaColors.mintBannerFill,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: ThaliaColors.emeraldPrimary),
-                    ),
-                    child: Text(
-                      controller.feedbackBanner!,
-                      style: const TextStyle(
-                        fontSize: 12.5,
-                        fontWeight: FontWeight.w700,
-                        color: ThaliaColors.forestDark,
+                  Builder(builder: (context) {
+                    final isSuccess = controller.feedbackBanner!.contains('berhasil');
+                    return Container(
+                      width: double.infinity,
+                      margin: const EdgeInsets.only(bottom: 14),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 10,
                       ),
-                    ),
-                  ),
+                      decoration: BoxDecoration(
+                        color: isSuccess
+                            ? ThaliaColors.mintBannerFill
+                            : const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: isSuccess
+                              ? ThaliaColors.emeraldPrimary
+                              : const Color(0xFFEF4444),
+                        ),
+                      ),
+                      child: Text(
+                        controller.feedbackBanner!,
+                        style: TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w700,
+                          color: isSuccess
+                              ? ThaliaColors.forestDark
+                              : const Color(0xFFB91C1C),
+                        ),
+                      ),
+                    );
+                  }),
                 ],
 
                 // Tombol Utama: Masuk ke Dashboard

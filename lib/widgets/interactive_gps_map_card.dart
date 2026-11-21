@@ -101,7 +101,7 @@ class _InteractiveGpsMapCardState extends State<InteractiveGpsMapCard>
                   children: [
                     TileLayer(
                       urlTemplate:
-                          'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                          'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                       userAgentPackageName: 'com.thalia.ui_presu',
                     ),
                   ],

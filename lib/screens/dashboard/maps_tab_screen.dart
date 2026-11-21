@@ -196,7 +196,7 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                             children: [
                               TileLayer(
                                 urlTemplate:
-                                    'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}',
+                                    'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
                                 userAgentPackageName: 'com.thalia.ui_presu',
                               ),
                             ],

@@ -387,6 +387,31 @@ class RegisterScreen extends StatelessWidget {
           ),
           const SizedBox(height: 18),
 
+          // Banner feedback validasi bila data input tidak valid
+          if (controller.feedbackBanner != null) ...[
+            Container(
+              width: double.infinity,
+              margin: const EdgeInsets.only(bottom: 14),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10,
+              ),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFEE2E2),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFEF4444)),
+              ),
+              child: Text(
+                controller.feedbackBanner!,
+                style: const TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.w700,
+                  color: Color(0xFFB91C1C),
+                ),
+              ),
+            ),
+          ],
+
           // 7. Tombol Daftar Sekarang ->
           StaggeredEntrance(
             delayMs: 340,
@@ -394,7 +419,8 @@ class RegisterScreen extends StatelessWidget {
               label: 'Daftar Sekarang',
               showArrow: true,
               palette: palette,
-              onTap: () => controller.navigateTo(AuthScreenStep.login),
+              isLoading: controller.isSubmitting,
+              onTap: controller.submitRegister,
             ),
           ),
           const SizedBox(height: 16),

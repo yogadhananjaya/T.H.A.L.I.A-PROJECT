@@ -69,6 +69,39 @@ final class AuthController extends ChangeNotifier {
 
   Future<void> submitLogin() async {
     if (_isSubmitting) return;
+
+    final emailOrId = _loginModel.emailOrOfficerId.trim();
+    final password = _loginModel.password;
+
+    // 1. Validasi: Login tidak boleh kosong
+    if (emailOrId.isEmpty) {
+      _feedbackBanner = 'Email atau ID Petugas tidak boleh kosong.';
+      notifyListeners();
+      return;
+    }
+
+    // 2. Validasi: Jika input berupa email, harus berakhiran @gmail.com
+    if (emailOrId.contains('@')) {
+      final emailLower = emailOrId.toLowerCase();
+      if (!RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$').hasMatch(emailLower)) {
+        _feedbackBanner = 'Email harus menggunakan domain @gmail.com (contoh: akun@gmail.com).';
+        notifyListeners();
+        return;
+      }
+    }
+
+    // 3. Validasi: Password tidak boleh kosong & minimal 5 karakter
+    if (password.isEmpty) {
+      _feedbackBanner = 'Kata sandi tidak boleh kosong.';
+      notifyListeners();
+      return;
+    }
+    if (password.length < 5) {
+      _feedbackBanner = 'Kata sandi minimal harus 5 karakter.';
+      notifyListeners();
+      return;
+    }
+
     _isSubmitting = true;
     _feedbackBanner = null;
     notifyListeners();
@@ -80,6 +113,85 @@ final class AuthController extends ChangeNotifier {
   }
 
   // --- Fungsi Halaman Daftar Akun Baru (Register) ---
+  Future<bool> submitRegister() async {
+    if (_isSubmitting) return false;
+
+    final name = _registerModel.fullName.trim();
+    final email = _registerModel.email.trim();
+    final password = _registerModel.password;
+    final confirm = _registerModel.confirmPassword;
+
+    // 1. Validasi: Nama lengkap tidak boleh kosong
+    if (name.isEmpty) {
+      _feedbackBanner = 'Nama lengkap tidak boleh kosong.';
+      notifyListeners();
+      return false;
+    }
+
+    // 2. Validasi: Nama tidak boleh ada angka atau huruf/karakter unik
+    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(name)) {
+      _feedbackBanner = 'Nama hanya boleh berupa huruf alfabet dan spasi (tanpa angka/karakter unik).';
+      notifyListeners();
+      return false;
+    }
+
+    // 3. Validasi: Email tidak boleh kosong
+    if (email.isEmpty) {
+      _feedbackBanner = 'Alamat email tidak boleh kosong.';
+      notifyListeners();
+      return false;
+    }
+
+    // 4. Validasi: Email harus @gmail.com
+    final emailLower = email.toLowerCase();
+    if (!RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$').hasMatch(emailLower)) {
+      _feedbackBanner = 'Email harus menggunakan domain @gmail.com (contoh: user@gmail.com).';
+      notifyListeners();
+      return false;
+    }
+
+    // 5. Validasi: Password tidak boleh kosong & minimal 5 karakter
+    if (password.isEmpty) {
+      _feedbackBanner = 'Kata sandi tidak boleh kosong.';
+      notifyListeners();
+      return false;
+    }
+    if (password.length < 5) {
+      _feedbackBanner = 'Kata sandi minimal harus 5 karakter.';
+      notifyListeners();
+      return false;
+    }
+
+    // 6. Validasi: Konfirmasi kata sandi harus diisi dan cocok
+    if (confirm.isEmpty) {
+      _feedbackBanner = 'Konfirmasi kata sandi tidak boleh kosong.';
+      notifyListeners();
+      return false;
+    }
+    if (password != confirm) {
+      _feedbackBanner = 'Konfirmasi kata sandi tidak cocok.';
+      notifyListeners();
+      return false;
+    }
+
+    // 7. Validasi: Harus menyetujui Syarat & Ketentuan
+    if (!_registerModel.agreedToTerms) {
+      _feedbackBanner = 'Harap centang persetujuan Syarat & Ketentuan.';
+      notifyListeners();
+      return false;
+    }
+
+    _isSubmitting = true;
+    _feedbackBanner = null;
+    notifyListeners();
+
+    await Future<void>.delayed(const Duration(milliseconds: 350));
+    _isSubmitting = false;
+    _currentStep = AuthScreenStep.login;
+    _feedbackBanner = 'Pendaftaran akun berhasil! Silakan masuk.';
+    notifyListeners();
+    return true;
+  }
   void updateRegisterName(String value) {
     _registerModel = _registerModel.copyWith(fullName: value);
     notifyListeners();
