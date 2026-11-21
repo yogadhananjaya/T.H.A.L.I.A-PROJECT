@@ -36,11 +36,16 @@ class Settings(BaseSettings):
     # Thresholds for Disaster Classification
     # Atmosphere
     PRESSURE_DROP_THRESHOLD_HPA: float = 4.0 # Sudden pressure drop indicating storm
+    STORM_PRESSURE_HPA: float = 1005.0
+    STORM_HUMIDITY_PCT: float = 85.0
     # Hydrosphere (FC-37 Rainfall Intensity in %)
     RAIN_ALERT_PCT: float = 30.0
-    RAIN_DANGER_PCT: float = 70.0
+    RAIN_DANGER_PCT: float = 75.0
     # Lithosphere (Soil Moisture in %)
     SOIL_SATURATION_ALERT: float = 65.0
     SOIL_SATURATION_DANGER: float = 80.0
+    SOIL_SATURATION_EXTREME: float = 85.0
+    # Anti-spam cooldown for oscillating sensor values (same node & same severity)
+    ALERT_COOLDOWN_SECONDS: int = int(os.getenv("ALERT_COOLDOWN_SECONDS", "60"))
 
 settings = Settings()

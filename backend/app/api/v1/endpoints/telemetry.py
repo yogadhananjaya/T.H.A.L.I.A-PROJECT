@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from app.db.session import get_db
 from app.db.models import TelemetryLog, DisasterIncident
 from app.schemas.telemetry import TelemetryCreate, TelemetryResponse
+from app.core.config import settings
 from app.core.rules import DisasterRuleEngine, StatusLevel
 from app.services.blockchain_service import BlockchainService
 from app.services.fcm_service import FCMService
@@ -75,60 +76,84 @@ def ingest_telemetry(payload: TelemetryCreate, db: Session = Depends(get_db)):
 
     new_rank = SEVERITY_RANK.get(status.value, 0)
 
-    # 3. Trigger Blockchain & FCM ONLY on escalation (Safe->Alert, Safe->Danger, Alert->Danger)
+    # 3. Trigger Blockchain & FCM ONLY on escalation AND outside cooldown window
+    # (prevents spam when sensor oscillates around threshold, e.g. 64.9% <-> 65.1%)
     if status in [StatusLevel.ALERT, StatusLevel.DANGER] and new_rank > prev_rank:
-        snapshot = {
-            "telemetry_id": telemetry.id,
-            "node_id": payload.node_id,
-            "location": payload.location_name,
-            "latitude": payload.latitude,
-            "longitude": payload.longitude,
-            "soil_moisture_pct": payload.soil_moisture_pct,
-            "rainfall_pct": payload.rainfall_pct,
-            "is_raining": bool(payload.is_raining),
-            "pressure_hpa": payload.pressure_hpa,
-            "status": status.value,
-            "timestamp": now_utc.isoformat().replace("+00:00", "Z"),
-        }
-
-        data_hash = BlockchainService.compute_data_hash(snapshot)
-
-        bc_result = BlockchainService.record_alert_on_chain(
-            data_hash_hex=data_hash,
-            location=payload.location_name,
-            habitat_summary=reason,
-            severity=status.value,
+        last_same_incident = (
+            db.query(DisasterIncident)
+            .filter(
+                DisasterIncident.node_id == payload.node_id,
+                DisasterIncident.severity == status.value,
+            )
+            .order_by(DisasterIncident.id.desc())
+            .first()
         )
+        in_cooldown = False
+        if last_same_incident and last_same_incident.timestamp:
+            last_ts = last_same_incident.timestamp
+            if last_ts.tzinfo is None:
+                last_ts = last_ts.replace(tzinfo=timezone.utc)
+            elapsed = (now_utc - last_ts).total_seconds()
+            if elapsed < settings.ALERT_COOLDOWN_SECONDS:
+                in_cooldown = True
+                logger.info(
+                    f"Node {payload.node_id} {status.value} within {settings.ALERT_COOLDOWN_SECONDS}s cooldown "
+                    f"({elapsed:.1f}s elapsed); skipping duplicate Blockchain tx & FCM."
+                )
 
-        instructions = (
-            "PERINGATAN TINGGI! Warga lereng curam harap segera evakuasi mandiri ke titik kumpul aman!"
-            if status == StatusLevel.DANGER
-            else "WASPADA! Pantau pergerakan tanah dan jauhi aliran sungai."
-        )
+        if not in_cooldown:
+            snapshot = {
+                "telemetry_id": telemetry.id,
+                "node_id": payload.node_id,
+                "location": payload.location_name,
+                "latitude": payload.latitude,
+                "longitude": payload.longitude,
+                "soil_moisture_pct": payload.soil_moisture_pct,
+                "rainfall_pct": payload.rainfall_pct,
+                "is_raining": bool(payload.is_raining),
+                "pressure_hpa": payload.pressure_hpa,
+                "status": status.value,
+                "timestamp": now_utc.isoformat().replace("+00:00", "Z"),
+            }
 
-        fcm_result = FCMService.send_emergency_alert(
-            severity=status.value,
-            location=payload.location_name,
-            reason=reason,
-            safety_instructions=instructions,
-        )
+            data_hash = BlockchainService.compute_data_hash(snapshot)
 
-        incident = DisasterIncident(
-            node_id=payload.node_id,
-            location_name=payload.location_name,
-            severity=status.value,
-            cause_summary=reason,
-            data_hash=data_hash,
-            blockchain_tx_hash=bc_result.get("tx_hash"),
-            blockchain_event_id=bc_result.get("event_id"),
-            blockchain_status=bc_result.get("status", "PENDING"),
-            fcm_sent=fcm_result.get("status", "PENDING"),
-            fcm_message=fcm_result.get("body"),
-            raw_telemetry_snapshot=snapshot,
-            timestamp=now_utc,
-        )
-        db.add(incident)
-        db.commit()
+            bc_result = BlockchainService.record_alert_on_chain(
+                data_hash_hex=data_hash,
+                location=payload.location_name,
+                habitat_summary=reason,
+                severity=status.value,
+            )
+
+            instructions = (
+                "PERINGATAN TINGGI! Warga lereng curam harap segera evakuasi mandiri ke titik kumpul aman!"
+                if status == StatusLevel.DANGER
+                else "WASPADA! Pantau pergerakan tanah dan jauhi aliran sungai."
+            )
+
+            fcm_result = FCMService.send_emergency_alert(
+                severity=status.value,
+                location=payload.location_name,
+                reason=reason,
+                safety_instructions=instructions,
+            )
+
+            incident = DisasterIncident(
+                node_id=payload.node_id,
+                location_name=payload.location_name,
+                severity=status.value,
+                cause_summary=reason,
+                data_hash=data_hash,
+                blockchain_tx_hash=bc_result.get("tx_hash"),
+                blockchain_event_id=bc_result.get("event_id"),
+                blockchain_status=bc_result.get("status", "PENDING"),
+                fcm_sent=fcm_result.get("status", "PENDING"),
+                fcm_message=fcm_result.get("body"),
+                raw_telemetry_snapshot=snapshot,
+                timestamp=now_utc,
+            )
+            db.add(incident)
+            db.commit()
     elif status in [StatusLevel.ALERT, StatusLevel.DANGER]:
         logger.info(
             f"Node {payload.node_id} remains in {status.value} state; skipping duplicate Blockchain tx & FCM."
