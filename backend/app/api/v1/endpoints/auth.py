@@ -82,25 +82,55 @@ def _build_session_response(user: User, token: str) -> dict:
 
 
 def _ensure_demo_admin_seeded(db: Session) -> None:
-    """Seed default demo officer account (admin / 123) if it does not exist yet."""
-    existing = db.query(User).filter(User.username == "admin").first()
-    if existing:
-        return
-    demo = User(
-        full_name="Petugas Siaga T.H.A.L.I.A",
-        email="admin@gmail.com",
-        username="admin",
-        hashed_password=hash_password("123"),
-        phone="+62 812-0000-2026",
-        handle="@petugas_thalia",
-        role="admin",
-        location_name="Cibatu, Cikarang Selatan, Bekasi",
-        latitude=-6.3378,
-        longitude=107.1541,
-        radius_km=5,
-    )
-    db.add(demo)
-    db.commit()
+    """Seed default demo accounts (admin, staff verifikator, and warga) if missing."""
+    demo_accounts = [
+        User(
+            full_name="Admin T.H.A.L.I.A",
+            email="admin@gmail.com",
+            username="admin",
+            hashed_password=hash_password("123"),
+            phone="+62 812-0000-2026",
+            handle="@admin_thalia",
+            role="admin",
+            location_name="Cibatu, Cikarang Selatan, Bekasi",
+            latitude=-6.3378,
+            longitude=107.1541,
+            radius_km=5,
+        ),
+        User(
+            full_name="Petugas Verifikator T.H.A.L.I.A",
+            email="staff@gmail.com",
+            username="staff",
+            hashed_password=hash_password("123"),
+            phone="+62 812-1111-2026",
+            handle="@staff_verifikator",
+            role="staff",
+            location_name="Cibatu, Cikarang Selatan, Bekasi",
+            latitude=-6.3378,
+            longitude=107.1541,
+            radius_km=10,
+        ),
+        User(
+            full_name="Warga Pelapor T.H.A.L.I.A",
+            email="warga@gmail.com",
+            username="warga",
+            hashed_password=hash_password("123"),
+            phone="+62 812-2222-2026",
+            handle="@warga_pelapor",
+            role="warga",
+            location_name="Cibatu, Cikarang Selatan, Bekasi",
+            latitude=-6.3378,
+            longitude=107.1541,
+            radius_km=5,
+        ),
+    ]
+    added = False
+    for account in demo_accounts:
+        if not db.query(User).filter(User.username == account.username).first():
+            db.add(account)
+            added = True
+    if added:
+        db.commit()
 
 
 @router.post("/register", status_code=status.HTTP_201_CREATED)
@@ -139,6 +169,7 @@ def register(payload: RegisterRequest, db: Session = Depends(get_db)):
         username=username,
         hashed_password=hash_password(payload.password),
         handle=f"@{username}",
+        role="warga",
         location_name=payload.location_name.strip(),
         latitude=payload.latitude,
         longitude=payload.longitude,

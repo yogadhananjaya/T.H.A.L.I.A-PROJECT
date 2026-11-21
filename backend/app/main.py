@@ -6,6 +6,8 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from sqlalchemy import inspect as sqla_inspect, text as sqla_text
+
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.db.session import engine, Base
@@ -17,8 +19,30 @@ logging.basicConfig(
 )
 logger = logging.getLogger("thalia_backend")
 
+
+def _ensure_report_verification_columns() -> None:
+    """Safely adds verification columns to existing field_reports tables."""
+    try:
+        inspector = sqla_inspect(engine)
+        if "field_reports" not in inspector.get_table_names():
+            return
+        existing_cols = {col["name"] for col in inspector.get_columns("field_reports")}
+        alter_stmts = {
+            "verified_by": "ALTER TABLE field_reports ADD COLUMN verified_by VARCHAR(120)",
+            "verified_at": "ALTER TABLE field_reports ADD COLUMN verified_at TIMESTAMP",
+            "verification_note": "ALTER TABLE field_reports ADD COLUMN verification_note TEXT",
+        }
+        with engine.begin() as conn:
+            for col_name, stmt in alter_stmts.items():
+                if col_name not in existing_cols:
+                    conn.execute(sqla_text(stmt))
+    except Exception as exc:
+        logger.warning(f"Skipping verification column check: {exc}")
+
+
 # Ensure database tables exist immediately on import/startup
 Base.metadata.create_all(bind=engine)
+_ensure_report_verification_columns()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

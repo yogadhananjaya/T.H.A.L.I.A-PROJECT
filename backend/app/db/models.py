@@ -102,6 +102,9 @@ class FieldReport(Base):
     location_name = Column(String(150), default="Lokasi Terpantau")
     latitude = Column(Float, nullable=True)
     longitude = Column(Float, nullable=True)
-    status = Column(String(30), default="processing")  # processing, received, completed
+    status = Column(String(30), default="processing")  # processing, received, completed, rejected
     metric_summary = Column(String(150), default="")
     photo_base64 = Column(Text, nullable=True)
+    verified_by = Column(String(120), nullable=True)
+    verified_at = Column(DateTime(timezone=True), nullable=True)
+    verification_note = Column(Text, nullable=True)

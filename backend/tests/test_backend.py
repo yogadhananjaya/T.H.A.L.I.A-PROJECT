@@ -288,3 +288,49 @@ def test_forecast_and_field_reports_with_utc_z():
     listing = client.get("/api/v1/reports")
     assert listing.status_code == 200
     assert len(listing.json()["reports"]) >= 2
+
+
+def test_staff_report_verification():
+    # Login as warga (citizen)
+    warga_login = client.post("/api/v1/auth/login", json={"username": "warga", "password": "123"})
+    assert warga_login.status_code == 200
+    warga_token = warga_login.json()["access_token"]
+    assert warga_login.json()["role"] == "warga"
+
+    # Warga submits a report
+    rep = client.post(
+        "/api/v1/reports",
+        json={
+            "category": "Banjir",
+            "description": "Air meluap ke perumahan warga sekitar pukul 15.00 WIB.",
+            "location_name": "Cikarang Selatan",
+        },
+        headers={"Authorization": f"Bearer {warga_token}"},
+    )
+    assert rep.status_code == 201
+    report_id = rep.json()["id"]
+
+    # Warga CANNOT verify their own report -> 403 Forbidden
+    warga_verify = client.post(
+        f"/api/v1/reports/{report_id}/verify",
+        json={"action": "approve", "note": "Coba verifikasi sendiri"},
+        headers={"Authorization": f"Bearer {warga_token}"},
+    )
+    assert warga_verify.status_code == 403
+
+    # Login as staff verifikator
+    staff_login = client.post("/api/v1/auth/login", json={"username": "staff", "password": "123"})
+    assert staff_login.status_code == 200
+    staff_token = staff_login.json()["access_token"]
+    assert staff_login.json()["role"] == "staff"
+
+    # Staff verifies the report as real/approved
+    staff_verify = client.post(
+        f"/api/v1/reports/{report_id}/verify",
+        json={"action": "approve", "note": "Foto & lokasi sesuai pantauan posko."},
+        headers={"Authorization": f"Bearer {staff_token}"},
+    )
+    assert staff_verify.status_code == 200
+    verified_report = staff_verify.json()["report"]
+    assert verified_report["status"] == "completed"
+    assert verified_report["verified_by"] == "Petugas Verifikator T.H.A.L.I.A"

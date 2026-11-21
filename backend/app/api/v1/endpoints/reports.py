@@ -1,11 +1,12 @@
 import base64
 from datetime import datetime, timezone
-from typing import Optional
+from typing import Literal, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.core.security import get_optional_user
+from app.core.security import get_current_user, get_optional_user
 from app.db.models import FieldReport, User
 from app.db.session import get_db
 
@@ -48,7 +49,15 @@ def _serialize_report(r: FieldReport) -> dict:
         "created_at": _utc_z(r.created_at),
         "reporter_name": r.reporter_name,
         "has_photo": bool(r.photo_base64),
+        "verified_by": r.verified_by,
+        "verified_at": _utc_z(r.verified_at) if r.verified_at else None,
+        "verification_note": r.verification_note,
     }
+
+
+class VerifyReportRequest(BaseModel):
+    action: Literal["approve", "reject"]
+    note: str = ""
 
 
 @router.get("")
@@ -132,3 +141,40 @@ async def create_report(
     db.commit()
     db.refresh(report)
     return _serialize_report(report)
+
+
+_VERIFIER_ROLES = {"staff", "admin", "petugas"}
+
+
+@router.post("/{report_id}/verify")
+def verify_report(
+    report_id: int,
+    payload: VerifyReportRequest,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Memverifikasi keaslian laporan warga (khusus akun staff/admin/petugas)."""
+    if (current_user.role or "").lower() not in _VERIFIER_ROLES:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Hanya petugas verifikator atau admin yang berwenang memverifikasi laporan.",
+        )
+
+    report = db.query(FieldReport).filter(FieldReport.id == report_id).first()
+    if not report:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Laporan tidak ditemukan.",
+        )
+
+    report.status = "completed" if payload.action == "approve" else "rejected"
+    report.verified_by = current_user.full_name
+    report.verified_at = datetime.now(timezone.utc)
+    report.verification_note = payload.note.strip() or (
+        "Terverifikasi asli oleh petugas lapangan."
+        if payload.action == "approve"
+        else "Laporan ditolak setelah pemeriksaan petugas."
+    )
+    db.commit()
+    db.refresh(report)
+    return {"report": _serialize_report(report)}
