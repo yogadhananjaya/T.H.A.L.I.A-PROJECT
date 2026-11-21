@@ -21,3 +21,6 @@ firebase_service_account.json
 # IDE
 .vscode/
 .idea/
+
+# Repo frontend (clone terpisah, jangan masuk repo backend)
+frontend/
