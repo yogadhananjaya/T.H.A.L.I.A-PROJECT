@@ -25,10 +25,10 @@ class Settings(BaseSettings):
     
     # BMKG Open Data API settings
     BMKG_API_URL: str = os.getenv("BMKG_API_URL", "https://api.bmkg.go.id/publik/prakiraan-cuaca")
-    DEFAULT_REGION_CODE: str = os.getenv("DEFAULT_REGION_CODE", "32.73.05.1001") # Maleber, Andir, Kota Bandung
+    DEFAULT_REGION_CODE: str = os.getenv("DEFAULT_REGION_CODE", "32.16.19.2001") # Cibatu, Cikarang Selatan, Bekasi
     # Koordinat titik sensor (dipakai Open-Meteo bila BMKG tidak punya data)
-    DEFAULT_LAT: float = float(os.getenv("DEFAULT_LAT", "-6.9175"))
-    DEFAULT_LON: float = float(os.getenv("DEFAULT_LON", "107.6191"))
+    DEFAULT_LAT: float = float(os.getenv("DEFAULT_LAT", "-6.3378"))
+    DEFAULT_LON: float = float(os.getenv("DEFAULT_LON", "107.1541"))
     
     # Firebase Cloud Messaging (FCM)
     FIREBASE_CREDENTIALS_PATH: str = os.getenv("FIREBASE_CREDENTIALS_PATH", "firebase_service_account.json")
@@ -36,9 +36,9 @@ class Settings(BaseSettings):
     # Thresholds for Disaster Classification
     # Atmosphere
     PRESSURE_DROP_THRESHOLD_HPA: float = 4.0 # Sudden pressure drop indicating storm
-    # Hydrosphere (Rainfall in mm/hr)
-    RAIN_MODERATE_THRESHOLD: float = 20.0
-    RAIN_HEAVY_THRESHOLD: float = 50.0
+    # Hydrosphere (FC-37 Rainfall Intensity in %)
+    RAIN_ALERT_PCT: float = 30.0
+    RAIN_DANGER_PCT: float = 70.0
     # Lithosphere (Soil Moisture in %)
     SOIL_SATURATION_ALERT: float = 65.0
     SOIL_SATURATION_DANGER: float = 80.0

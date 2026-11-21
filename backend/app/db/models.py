@@ -1,24 +1,28 @@
-import datetime
-from sqlalchemy import Column, Integer, Float, String, DateTime, Text, JSON
+from datetime import datetime, timezone
+from sqlalchemy import Column, Integer, Float, String, DateTime, Text, JSON, Boolean
 from app.db.session import Base
+
+def utc_now():
+    return datetime.now(timezone.utc)
 
 class TelemetryLog(Base):
     __tablename__ = "telemetry_logs"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    timestamp = Column(DateTime(timezone=True), default=utc_now, index=True)
     node_id = Column(String(50), default="ESP32-NODE-01", index=True)
-    location_name = Column(String(100), default="Desa Sukamaju, Lereng Selatan")
-    latitude = Column(Float, default=-6.9175)
-    longitude = Column(Float, default=107.6191)
+    location_name = Column(String(100), default="Cibatu, Cikarang Selatan, Bekasi")
+    latitude = Column(Float, default=-6.3378)
+    longitude = Column(Float, default=107.1541)
 
     # 1. Atmosphere (BME280)
     temperature_c = Column(Float, nullable=False)
     humidity_pct = Column(Float, nullable=False)
     pressure_hpa = Column(Float, nullable=False)
 
-    # 2. Hydrosphere (Rainfall sensor)
-    rainfall_mm_h = Column(Float, nullable=False)
+    # 2. Hydrosphere (FC-37 Rain Sensor: 0-100% + boolean)
+    rainfall_pct = Column(Float, nullable=False)
+    is_raining = Column(Boolean, default=False)
     rainfall_raw = Column(Integer, nullable=True)
 
     # 3. Lithosphere (Soil moisture sensor)
@@ -35,7 +39,7 @@ class DisasterIncident(Base):
     __tablename__ = "disaster_incidents"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    timestamp = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+    timestamp = Column(DateTime(timezone=True), default=utc_now, index=True)
     node_id = Column(String(50), default="ESP32-NODE-01")
     location_name = Column(String(100))
     severity = Column(String(20), nullable=False) # Alert, Danger
@@ -58,7 +62,7 @@ class BMKGSnapshot(Base):
     __tablename__ = "bmkg_snapshots"
 
     id = Column(Integer, primary_key=True, index=True, autoincrement=True)
-    updated_at = Column(DateTime, default=datetime.datetime.utcnow)
+    updated_at = Column(DateTime(timezone=True), default=utc_now)
     region_code = Column(String(50), index=True)
     region_name = Column(String(100))
     weather_desc = Column(String(100))

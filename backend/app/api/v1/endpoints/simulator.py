@@ -18,7 +18,7 @@ class DemoScenario(str, Enum):
 
 class ScenarioTriggerRequest(BaseModel):
     scenario: DemoScenario
-    location: str = "Desa Sukamaju, Titik Rawan Lereng A"
+    location: str = "Cibatu, Cikarang Selatan, Bekasi"
 
 @router.post("/reset")
 def reset_demo_data(db: Session = Depends(get_db)):
@@ -43,52 +43,57 @@ def inject_demo_scenario(
         payload = TelemetryCreate(
             node_id="ESP32-NODE-01",
             location_name=req.location,
-            temperature_c=25.4,
+            temperature_c=26.4,
             humidity_pct=72.0,
             pressure_hpa=1013.2,
-            rainfall_mm_h=2.5,
+            rainfall_pct=5.0,
+            is_raining=False,
             soil_moisture_pct=45.0
         )
     elif req.scenario == DemoScenario.ALERT_RAIN:
         payload = TelemetryCreate(
             node_id="ESP32-NODE-01",
             location_name=req.location,
-            temperature_c=22.8,
+            temperature_c=23.8,
             humidity_pct=88.0,
             pressure_hpa=1006.0,
-            rainfall_mm_h=28.0,
+            rainfall_pct=45.0,
+            is_raining=True,
             soil_moisture_pct=58.0
         )
     elif req.scenario == DemoScenario.ALERT_MOISTURE:
         payload = TelemetryCreate(
             node_id="ESP32-NODE-01",
             location_name=req.location,
-            temperature_c=23.0,
+            temperature_c=24.0,
             humidity_pct=86.0,
             pressure_hpa=1008.0,
-            rainfall_mm_h=12.0,
+            rainfall_pct=20.0,
+            is_raining=True,
             soil_moisture_pct=68.5
         )
     elif req.scenario == DemoScenario.DANGER_LANDSLIDE:
-        # High saturation (86%) + heavy rainfall (38mm/h) -> classic landslide trigger!
+        # High saturation (88.5%) + moderate/heavy rain (55%) -> landslide trigger
         payload = TelemetryCreate(
             node_id="ESP32-NODE-01",
             location_name=req.location,
-            temperature_c=21.0,
+            temperature_c=22.0,
             humidity_pct=95.0,
             pressure_hpa=1002.5,
-            rainfall_mm_h=42.0,
+            rainfall_pct=55.0,
+            is_raining=True,
             soil_moisture_pct=88.5
         )
     elif req.scenario == DemoScenario.DANGER_FLASHFLOOD:
-        # Extreme rainfall > 70 mm/h
+        # Extreme rain intensity (>=75%)
         payload = TelemetryCreate(
             node_id="ESP32-NODE-01",
             location_name=req.location,
-            temperature_c=20.5,
+            temperature_c=21.5,
             humidity_pct=98.0,
             pressure_hpa=998.0,
-            rainfall_mm_h=85.0,
+            rainfall_pct=90.0,
+            is_raining=True,
             soil_moisture_pct=78.0
         )
     else:

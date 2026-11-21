@@ -43,8 +43,8 @@ def test_demo_storyline_covers_all_levels():
     levels = set()
     for step in range(36):
         p = sim.generate_telemetry("demo", step)
-        s, _, _ = DisasterRuleEngine.evaluate(p["rainfall_mm_h"], p["soil_moisture_pct"],
-                                              p["temperature_c"], p["humidity_pct"], p["pressure_hpa"])
+        s, _, _ = DisasterRuleEngine.evaluate(p["rainfall_pct"], p["soil_moisture_pct"],
+                                              p["temperature_c"], p["humidity_pct"], p["pressure_hpa"], p["is_raining"])
         levels.add(s.value)
     assert levels == {"Safe", "Alert", "Danger"}
 

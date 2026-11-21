@@ -83,7 +83,7 @@ class BMKGService:
     @staticmethod
     def _region_name(loc: Dict[str, Any]) -> str:
         if not loc:
-            return "Jawa Barat (regional)"
+            return "Cibatu, Cikarang Selatan, Bekasi"
         parts = [loc.get("desa"), loc.get("kecamatan"), loc.get("kotkab")]
         return ", ".join(p for p in parts if p)
 

@@ -172,13 +172,24 @@ class BlockchainService:
     @classmethod
     def verify_on_chain(cls, event_id: int, data_hash_hex: str) -> bool:
         """
-        Queries smart contract to verify if the given hash matches the on-chain record
+        Queries smart contract to verify if the given hash matches the on-chain record.
+        Returns False if Hardhat node is offline or contract is not deployed.
         """
+        w3 = cls.get_w3()
+        if not w3.is_connected():
+            cls._contract = None
+            return False
+
         if cls._contract is None and not cls._init_contract():
-            return True # Fallback for demo if node is not running
+            return False
+
         try:
+            code = w3.eth.get_code(cls._contract.address)
+            if not code or len(code) == 0:
+                cls._contract = None
+                return False
             hash_bytes = bytes.fromhex(data_hash_hex[2:] if data_hash_hex.startswith("0x") else data_hash_hex)
-            return cls._contract.functions.verifyHash(event_id, hash_bytes).call()
+            return bool(cls._contract.functions.verifyHash(event_id, hash_bytes).call())
         except Exception as e:
             logger.error(f"Verification query failed: {e}")
             return False

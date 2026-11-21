@@ -49,27 +49,58 @@ def verify_alert_on_blockchain(alert_id: int, db: Session = Depends(get_db)):
             "incident_id": incident.id,
             "location": incident.location_name,
             "severity": incident.severity,
-            "timestamp": incident.timestamp.isoformat(),
+            "timestamp": incident.timestamp.isoformat().replace("+00:00", "Z"),
             "database_hash": incident.data_hash,
+            "recomputed_hash": None,
             "blockchain_event_id": None,
             "blockchain_tx_hash": None,
             "is_tamper_proof_valid": False,
             "audit_verdict": f"NOT_ON_CHAIN ({incident.blockchain_status}): data ini tidak pernah tercatat di blockchain"
         }
 
+    # Recompute hash directly from raw_telemetry_snapshot to detect DB tampering
+    if not incident.raw_telemetry_snapshot:
+        return {
+            "incident_id": incident.id,
+            "location": incident.location_name,
+            "severity": incident.severity,
+            "timestamp": incident.timestamp.isoformat().replace("+00:00", "Z"),
+            "database_hash": incident.data_hash,
+            "recomputed_hash": None,
+            "blockchain_event_id": incident.blockchain_event_id,
+            "blockchain_tx_hash": incident.blockchain_tx_hash,
+            "is_tamper_proof_valid": False,
+            "audit_verdict": "TAMPER_CHECK_FAILED: raw_telemetry_snapshot missing"
+        }
+
+    recomputed_hash = BlockchainService.compute_data_hash(incident.raw_telemetry_snapshot)
+    hash_matches_db = (recomputed_hash == incident.data_hash)
+
     event_id = incident.blockchain_event_id
-    is_valid = BlockchainService.verify_on_chain(event_id, incident.data_hash)
+    on_chain_valid = BlockchainService.verify_on_chain(event_id, recomputed_hash) if event_id else False
+    is_valid = hash_matches_db and on_chain_valid
+
+    if is_valid:
+        verdict = "VERIFIED & UNTAMPERED"
+    elif not hash_matches_db:
+        verdict = "TAMPERED_DATA: snapshot database tidak cocok dengan data_hash"
+    else:
+        verdict = "VERIFICATION_FAILED: hash tidak cocok di blockchain atau node Hardhat offline"
+
+    ts = incident.timestamp
+    ts_str = (ts.isoformat().replace("+00:00", "Z")) if ts.tzinfo else (ts.isoformat() + "Z")
 
     return {
         "incident_id": incident.id,
         "location": incident.location_name,
         "severity": incident.severity,
-        "timestamp": incident.timestamp.isoformat(),
+        "timestamp": ts_str,
         "database_hash": incident.data_hash,
+        "recomputed_hash": recomputed_hash,
         "blockchain_event_id": incident.blockchain_event_id,
         "blockchain_tx_hash": incident.blockchain_tx_hash,
         "is_tamper_proof_valid": is_valid,
-        "audit_verdict": "VERIFIED & UNTAMPERED" if is_valid else "VERIFICATION_FAILED"
+        "audit_verdict": verdict
     }
 
 @router.get("/summary/blockchain")

@@ -18,39 +18,42 @@ Kirim data telemetri berkala (setiap **10–15 detik**) via HTTP `POST` ke endpo
 ```json
 {
   "node_id": "ESP32-NODE-01",
-  "location_name": "Desa Sukamaju, Lereng Selatan",
-  "latitude": -6.9175,
-  "longitude": 107.6191,
-  "temperature_c": 24.5,
-  "humidity_pct": 82.0,
+  "location_name": "Cibatu, Cikarang Selatan, Bekasi",
+  "latitude": -6.3378,
+  "longitude": 107.1541,
+  "temperature_c": 26.5,
+  "humidity_pct": 80.0,
   "pressure_hpa": 1011.5,
-  "rainfall_mm_h": 15.0,
-  "rainfall_raw": 300,
+  "rainfall_pct": 15.0,
+  "is_raining": true,
+  "rainfall_raw": 600,
   "soil_moisture_pct": 55.0,
   "soil_raw": 2200
 }
 ```
+*(Catatan: `rainfall_pct` adalah intensitas hujan 0–100% dari pin analog AO FC-37 di GPIO 35; `is_raining` opsional. Pencatatan Blockchain & FCM hanya dipicu saat status naik level agar tidak spam tiap 10 detik).*
 
 #### Response (200 OK):
 ```json
 {
   "id": 1,
-  "timestamp": "2026-11-21T05:00:00",
+  "timestamp": "2026-11-21T09:40:00Z",
   "node_id": "ESP32-NODE-01",
-  "location_name": "Desa Sukamaju, Lereng Selatan",
-  "latitude": -6.9175,
-  "longitude": 107.6191,
-  "temperature_c": 24.5,
-  "humidity_pct": 82.0,
+  "location_name": "Cibatu, Cikarang Selatan, Bekasi",
+  "latitude": -6.3378,
+  "longitude": 107.1541,
+  "temperature_c": 26.5,
+  "humidity_pct": 80.0,
   "pressure_hpa": 1011.5,
-  "rainfall_mm_h": 15.0,
+  "rainfall_pct": 15.0,
+  "is_raining": true,
   "soil_moisture_pct": 55.0,
   "status": "Safe",
   "status_reason": "AMAN: Kondisi seluruh habitat (Atmosfer, Hidrosfer, Litosfer) dalam batas normal.",
   "habitat_analysis": {
     "habitats": {
       "atmosphere": "Normal",
-      "hydrosphere": "Normal",
+      "hydrosphere": "Light Rain",
       "lithosphere": "Normal"
     }
   }
@@ -144,6 +147,6 @@ Manual (jika perlu): `run_blockchain.bat` → `deploy_contract.bat` → `run_bac
 
 ### BMKG
 Kode wilayah diatur di `backend/.env` (`DEFAULT_REGION_CODE`, format adm4 desa/kelurahan).
-Saat ini: `32.73.05.1001` (Maleber, Andir, Kota Bandung). Jika BMKG tidak mengembalikan
-prakiraan, panel perbandingan diberi label **FALLBACK** (bukan live).
+Saat ini: `32.16.19.2001` (Cibatu, Cikarang Selatan, Bekasi). Jika BMKG tidak mengembalikan
+prakiraan, backend memakai Open-Meteo (data nyata sesuai koordinat) atau data statis jika offline.
 
