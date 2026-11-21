@@ -6,7 +6,9 @@ Firmware untuk *IoT Edge Node* **T.H.A.L.I.A** berbasis **ESP32 (`ESP-WROOM-32`)
 
 ## 1. Wiring Pinout ESP32
 
-> **PENTING:** Seluruh sensor (termasuk modul Raindrop FC-37) **WAJIB diberi tegangan `3V3`, JANGAN `5V`**, agar tegangan output analog `AO` tidak melebihi batas 3.3V pin ADC ESP32.
+> **PENTING:**
+> - **BME280** & **Raindrop FC-37** **WAJIB diberi tegangan `3V3`, JANGAN `5V`**, agar tegangan output analog `AO` FC-37 tidak melebihi batas 3.3V pin ADC ESP32.
+> - **Capacitive Soil Moisture v1.2** (versi dengan IC regulator LDO 3.3V `U2` on-board) **diberi tegangan `VIN` (5V)** agar rangkaian osilatornya bekerja penuh; tegangan output `AOUT` tetap aman `< 3.0V` bagi ADC ESP32.
 
 | Modul / Habitat | Pin Modul | Pin ESP32 | Keterangan |
 |---|---|---|---|
@@ -15,7 +17,7 @@ Firmware untuk *IoT Edge Node* **T.H.A.L.I.A** berbasis **ESP32 (`ESP-WROOM-32`)
 | **Raindrop FC-37** *(Hydrosphere)* | `VCC`, `GND` | `3V3`, `GND` | **Wajib 3V3** |
 | | `DO` | `P23` (`GPIO 23`) | Digital Active LOW (`0` = hujan/basah) untuk `is_raining` & LED |
 | | `AO` | `P35` (`GPIO 35`) | **ADC1 input-only** — intensitas kebasahan `0–100%` (`rainfall_pct` & `rainfall_raw`) |
-| **Soil Moisture** *(Lithosphere)* | `VCC`, `GND`, `AOUT` | `3V3`, `GND`, `P34` | **Wajib ADC1** — kelembaban tanah `0–100%` (`soil_moisture_pct` & `soil_raw`) |
+| **Soil Moisture v1.2** *(Lithosphere)* | `VCC`, `GND`, `AOUT` | `VIN` (5V), `GND`, `P34` | **Wajib ADC1** — kelembaban tanah `0–100%` (`soil_moisture_pct` & `soil_raw`) |
 
 ---
 
@@ -27,7 +29,7 @@ Sesuaikan nilai kalibrasi di bagian atas `firmware/main.py` menggunakan alat per
   - Beberapa tetes $\rightarrow$ `< 30%` (*Aman / Light Rain*)
   - Disiram sedang $\rightarrow$ `30%–74%` (*Waspada / Alert*)
   - Plat basah penuh $\rightarrow$ `>= 75%` (*Bahaya / Danger*)
-- **`SOIL_DRY` / `SOIL_WET`** (default `3200` / `1300`):
+- **`SOIL_DRY` / `SOIL_WET`** (terkalibrasi `2480` / `650` — kering `~2481` vs celup air `~629–676`):
   - Media kering / lembap biasa $\rightarrow$ `< 65%` (*Aman*)
   - Media basah $\rightarrow$ `65%–84%` (*Waspada / Alert*)
   - Media sangat jenuh $\rightarrow$ `>= 85%` (*Bahaya / Danger*), **atau** `>= 80%` bersamaan dengan hujan `>= 30%` (*Bahaya / Danger*)
@@ -46,7 +48,7 @@ Kedua sensor analog menggunakan **rata-rata 15 sampel ADC**, dan khusus **Soil M
 
 ---
 
-## 4. Kontrak Payload (Sinkron dengan Branch `Backend` `fc41941`)
+## 4. Kontrak Payload (Sinkron dengan Branch `Backend` `ce761a2`)
 
 `POST /api/v1/telemetry` (`Content-Type: application/json`, interval **10 detik**):
 

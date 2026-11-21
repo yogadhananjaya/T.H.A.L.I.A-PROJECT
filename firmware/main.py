@@ -33,9 +33,9 @@ LONGITUDE = getattr(_s, "LONGITUDE", 107.1541)
 RAIN_DRY = 4095  # Kalibrasi: ADC saat plat kering
 RAIN_WET = 1200  # Kalibrasi: ADC saat plat basah merata
 
-# Sensor Tanah Soil Moisture (AOUT -> GPIO 34, WAJIB ADC1 agar tidak bentrok Wi-Fi)
-SOIL_DRY = 3200  # Kalibrasi: ADC saat media uji kering
-SOIL_WET = 1300  # Kalibrasi: ADC saat media uji jenuh air
+# Sensor Tanah Soil Moisture Capacitive v1.2 (VCC -> VIN 5V karena ada regulator U2 3.3V, AOUT -> GPIO 34 ADC1)
+SOIL_DRY = 2480  # Kalibrasi nyata: ADC kering di udara (~2481 -> 0.0%)
+SOIL_WET = 650   # Kalibrasi nyata: ADC dicelup air (~629-676 -> 100.0%)
 
 # Penghalusan khusus Soil Moisture (moving average 3 kiriman) untuk redam fluktuasi sekitar ambang 65%
 SOIL_SMOOTH_WINDOW = 3
