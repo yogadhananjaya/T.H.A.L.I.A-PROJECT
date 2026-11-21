@@ -49,6 +49,14 @@ async def lifespan(app: FastAPI):
     logger.info("Initializing T.H.A.L.I.A Database Tables...")
     try:
         Base.metadata.create_all(bind=engine)
+        _ensure_report_verification_columns()
+        from app.api.v1.endpoints.auth import _ensure_demo_admin_seeded
+        from app.db.session import SessionLocal
+        db = SessionLocal()
+        try:
+            _ensure_demo_admin_seeded(db)
+        finally:
+            db.close()
         logger.info("Database initialized successfully.")
     except Exception as e:
         logger.error(f"Error creating database tables: {e}")
