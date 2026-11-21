@@ -1,8 +1,18 @@
 import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+_ENV_FILE = os.path.join(
+    os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
+    ".env",
+)
+
+
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(case_sensitive=True, env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(
+        case_sensitive=True,
+        env_file=_ENV_FILE,
+        extra="ignore",
+    )
 
     PROJECT_NAME: str = "T.H.A.L.I.A Backend API"
     VERSION: str = "1.0.0"
