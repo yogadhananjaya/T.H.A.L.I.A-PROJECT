@@ -479,4 +479,26 @@ final class DashboardController extends ChangeNotifier {
     _selectedCalendarDay = day;
     notifyListeners();
   }
+
+  /// Verifikasi keaslian laporan warga (khusus akun petugas/staff/admin).
+  Future<String?> verifyReport(
+    String reportId, {
+    required bool approve,
+    String note = '',
+  }) async {
+    try {
+      final updated = await _api.verifyReport(
+        reportId: reportId,
+        approve: approve,
+        note: note,
+      );
+      _replaceReport(reportId, (_) => updated);
+      notifyListeners();
+      return null;
+    } on ApiException catch (e) {
+      return e.message;
+    } catch (_) {
+      return 'Gagal memverifikasi laporan. Coba lagi.';
+    }
+  }
 }

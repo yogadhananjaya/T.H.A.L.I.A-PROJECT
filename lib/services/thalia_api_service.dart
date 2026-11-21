@@ -56,4 +56,11 @@ abstract interface class ThaliaApiService {
 
   /// Mengirim laporan baru dan mengembalikan laporan yang tersimpan di server.
   Future<FieldReportItemModel> submitReport(FieldReportDraft draft);
+
+  /// Memverifikasi keaslian laporan warga (khusus akun pegawai/staff/admin).
+  Future<FieldReportItemModel> verifyReport({
+    required String reportId,
+    required bool approve,
+    String note = '',
+  });
 }

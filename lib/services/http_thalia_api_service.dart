@@ -191,6 +191,28 @@ final class HttpThaliaApiService implements ThaliaApiService {
     return FieldReportItemModel.fromJson(data);
   }
 
+  @override
+  Future<FieldReportItemModel> verifyReport({
+    required String reportId,
+    required bool approve,
+    String note = '',
+  }) async {
+    final data = await _client.post(
+      '${ApiConfig.reportsPath}/$reportId/verify',
+      body: {
+        'action': approve ? 'approve' : 'reject',
+        'note': note,
+      },
+    );
+    if (data is! Map<String, dynamic>) {
+      throw const ApiException('Jawaban verifikasi dari server tidak dikenali.');
+    }
+    final reportMap = data['report'] is Map<String, dynamic>
+        ? data['report'] as Map<String, dynamic>
+        : data;
+    return FieldReportItemModel.fromJson(reportMap);
+  }
+
   /// Menerima array JSON langsung, atau objek pembungkus seperti `{"days": [...]}`.
   List<Map<String, dynamic>> _asObjectList(dynamic data, {required String key}) {
     final list = data is Map<String, dynamic> ? data[key] : data;

@@ -351,6 +351,9 @@ final class FieldReportItemModel {
     this.fullDescription,
     this.isFailed = false,
     this.isSyncing = false,
+    this.isRejected = false,
+    this.verifiedBy,
+    this.verificationNote,
     this.pendingDraft,
   });
 
@@ -368,6 +371,9 @@ final class FieldReportItemModel {
   final String? fullDescription;
   final bool isFailed;
   final bool isSyncing;
+  final bool isRejected;
+  final String? verifiedBy;
+  final String? verificationNote;
   final FieldReportDraft? pendingDraft;
 
   static String _mapStatusLabel(String status) {
@@ -375,6 +381,8 @@ final class FieldReportItemModel {
       case 'completed':
       case 'verified':
         return 'Selesai';
+      case 'rejected':
+        return 'Ditolak';
       case 'processing':
         return 'Proses';
       case 'failed':
@@ -425,6 +433,9 @@ final class FieldReportItemModel {
           (description.isEmpty ? 'Dokumentasi visual terlampir' : _ellipsize(description)),
       statusLabel: _mapStatusLabel(status),
       isCompleted: completed,
+      isRejected: status == 'rejected',
+      verifiedBy: json['verified_by'] as String?,
+      verificationNote: json['verification_note'] as String?,
       iconAsset: icon,
       accentBarColor: accent,
       categoryLabel: json['category'] as String?,

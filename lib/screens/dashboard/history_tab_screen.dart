@@ -12,10 +12,12 @@ class HistoryTabScreen extends StatelessWidget {
     super.key,
     required this.controller,
     required this.climate,
+    this.isStaffVerifier = false,
   });
 
   final DashboardController controller;
   final ClimatePalette climate;
+  final bool isStaffVerifier;
 
   void _showReportDetail(BuildContext context, FieldReportItemModel report) {
     showModalBottomSheet<void>(
@@ -94,6 +96,95 @@ class HistoryTabScreen extends StatelessWidget {
                   color: climate.primaryDark,
                 ),
               ),
+              if (report.verifiedBy != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: climate.pillFill,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Diverifikasi oleh: ${report.verifiedBy}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: climate.primaryDark,
+                        ),
+                      ),
+                      if (report.verificationNote != null &&
+                          report.verificationNote!.isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          report.verificationNote!,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: climate.textSecondary,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                ),
+              ],
+              if (isStaffVerifier &&
+                  !report.isCompleted &&
+                  !report.isRejected &&
+                  !report.isFailed &&
+                  !report.id.startsWith('LOCAL-')) ...[
+                const SizedBox(height: 16),
+                Text(
+                  'Verifikasi Petugas / Staff',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w800,
+                    color: climate.primaryDark,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () async {
+                          Navigator.of(ctx).pop();
+                          await controller.verifyReport(
+                            report.id,
+                            approve: false,
+                          );
+                        },
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFFB33A22),
+                          side: const BorderSide(color: Color(0xFFB33A22)),
+                        ),
+                        icon: const Icon(Icons.close_rounded, size: 18),
+                        label: const Text('Tolak'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: FilledButton.icon(
+                        onPressed: () async {
+                          Navigator.of(ctx).pop();
+                          await controller.verifyReport(
+                            report.id,
+                            approve: true,
+                          );
+                        },
+                        style: FilledButton.styleFrom(
+                          backgroundColor: const Color(0xFF2E7D32),
+                        ),
+                        icon: const Icon(Icons.verified_rounded, size: 18),
+                        label: const Text('Setujui (Asli)'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
               if (report.isFailed) ...[
                 const SizedBox(height: 16),
                 SizedBox(

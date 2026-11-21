@@ -5,9 +5,10 @@ import '../widgets/figcraft_assets.dart';
 
 /// Layar Splash Screen pembuka aplikasi mobile T.H.A.L.I.A.
 ///
-/// Urutan animasi:
-/// 1. Menampilkan teks "T.H.A.L.I.A" dengan fade-in halus.
-/// 2. Memunculkan logo perisai T.H.A.L.I.A dengan transisi slide-up & fade-in.
+/// Posisi logo dan tulisan diselaraskan dengan `ShieldViewfinderHero` di WelcomeScreen
+/// agar transisi ke layar Selamat Datang terasa mulus:
+/// 1. Tulisan "THALIA" muncul dengan transisi slide-down & fade-in.
+/// 2. Logo perisai T.H.A.L.I.A muncul di atas tulisan dengan transisi slide-up & fade-in.
 /// 3. Berpindah otomatis ke alur utama aplikasi setelah animasi selesai.
 class SplashScreen extends StatefulWidget {
   const SplashScreen({
@@ -26,8 +27,8 @@ class _SplashScreenState extends State<SplashScreen>
   late final AnimationController _textController;
   late final AnimationController _logoController;
 
+  late final Animation<Offset> _textSlideDown;
   late final Animation<double> _textFade;
-  late final Animation<double> _textScale;
   late final Animation<Offset> _logoSlideUp;
   late final Animation<double> _logoFade;
 
@@ -43,12 +44,15 @@ class _SplashScreenState extends State<SplashScreen>
       vsync: this,
       duration: const Duration(milliseconds: 550),
     );
+    _textSlideDown = Tween<Offset>(
+      begin: const Offset(0, -0.45),
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic),
+    );
     _textFade = CurvedAnimation(
       parent: _textController,
       curve: Curves.easeOut,
-    );
-    _textScale = Tween<double>(begin: 0.92, end: 1.0).animate(
-      CurvedAnimation(parent: _textController, curve: Curves.easeOutCubic),
     );
 
     _logoController = AnimationController(
@@ -66,16 +70,16 @@ class _SplashScreenState extends State<SplashScreen>
       curve: Curves.easeOut,
     );
 
-    // Jalankan fase 1: tampilkan tulisan T.H.A.L.I.A
+    // Fase 1: Tulisan THALIA muncul dengan slide down
     _textController.forward();
 
-    // Fase 2: setelah tulisan tampil, munculkan logo dengan transisi slide up
-    _logoDelayTimer = Timer(const Duration(milliseconds: 600), () {
+    // Fase 2: Logo muncul di atas tulisan dengan slide up
+    _logoDelayTimer = Timer(const Duration(milliseconds: 450), () {
       if (!mounted) return;
       _logoController.forward();
     });
 
-    // Fase 3: lanjut ke halaman utama setelah animasi selesai
+    // Fase 3: Transisi mulus ke Welcome / Dashboard
     _finishTimer = Timer(const Duration(milliseconds: 2200), _completeSplash);
   }
 
@@ -104,55 +108,55 @@ class _SplashScreenState extends State<SplashScreen>
       body: SafeArea(
         child: Center(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
+            padding: const EdgeInsets.symmetric(horizontal: 28),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                // 1. Tulisan T.H.A.L.I.A muncul terlebih dahulu
-                FadeTransition(
-                  opacity: _textFade,
-                  child: ScaleTransition(
-                    scale: _textScale,
-                    child: Column(
-                      children: [
-                        Text(
-                          'T.H.A.L.I.A',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 34,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 5.0,
-                            color: palette.isDark
-                                ? palette.textPrimary
-                                : ThaliaColors.navyDeep,
-                          ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          'Tri-Habitat Climate Intelligence',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            fontSize: 12.5,
-                            fontWeight: FontWeight.w500,
-                            letterSpacing: 1.1,
-                            color: palette.textSecondary,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 28),
-                // 2. Logo T.H.A.L.I.A muncul dengan transisi slide up
+                // 1. Logo Perisai di posisi atas (selaras WelcomeScreen) dengan Slide Up
                 SlideTransition(
                   position: _logoSlideUp,
                   child: FadeTransition(
                     opacity: _logoFade,
                     child: Image.asset(
                       FigcraftAssets.shieldLogo,
-                      width: 118,
-                      height: 158,
+                      width: 112,
+                      height: 150,
                       fit: BoxFit.contain,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 22),
+                // 2. Tulisan THALIA di posisi bawah (selaras WelcomeScreen) dengan Slide Down
+                SlideTransition(
+                  position: _textSlideDown,
+                  child: FadeTransition(
+                    opacity: _textFade,
+                    child: Column(
+                      children: [
+                        Text(
+                          'THALIA',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 32,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 3.5,
+                            color: palette.isDark
+                                ? palette.textPrimary
+                                : ThaliaColors.navyDeep,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'TRI-HABITAT INTELLIGENCE',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            fontWeight: FontWeight.w700,
+                            letterSpacing: 1.6,
+                            color: palette.textSecondary,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),

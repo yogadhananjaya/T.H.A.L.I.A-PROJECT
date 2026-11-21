@@ -15,23 +15,23 @@ import 'package:ui_presu/utils/validators.dart';
 
 void main() {
   testWidgets(
-      'SplashScreen displays T.H.A.L.I.A text then slides up logo and transitions to app',
+      'SplashScreen displays THALIA text (slide down) then slides up logo and transitions to app',
       (WidgetTester tester) async {
     SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const ThaliaApp());
 
-    // Fase 1: Teks T.H.A.L.I.A muncul di awal
+    // Fase 1: Teks THALIA muncul di awal dengan slide down
     await tester.pump(const Duration(milliseconds: 300));
-    expect(find.text('T.H.A.L.I.A'), findsOneWidget);
+    expect(find.text('THALIA'), findsOneWidget);
 
-    // Fase 2: Logo muncul dengan transisi slide up
+    // Fase 2: Logo muncul dengan transisi slide up & tulisan dengan slide down
     await tester.pump(const Duration(milliseconds: 800));
     expect(
       find.descendant(
         of: find.byType(SplashScreen),
         matching: find.byType(SlideTransition),
       ),
-      findsOneWidget,
+      findsNWidgets(2),
     );
     expect(
       find.descendant(
@@ -225,6 +225,26 @@ void main() {
       expect(page1.length, 1);
       expect(page2.length, 1);
       expect(page1.first.id, isNot(page2.first.id));
+    });
+
+    test('Staff verifier role & report verification flow', () async {
+      final authSvc = MockAuthService(latency: Duration.zero);
+      final staffSession = await authSvc.login(username: 'staff', password: '123');
+      final wargaSession = await authSvc.login(username: 'warga', password: '123');
+      expect(staffSession.isStaffVerifier, isTrue);
+      expect(wargaSession.isStaffVerifier, isFalse);
+
+      final dash = DashboardController(api: MockThaliaApiService());
+      dash.setCapturedPhotoFromCamera(Uint8List.fromList([1, 2, 3, 4]));
+      dash.updateReportDescription('Banjir setinggi 50 cm di depan pos ronda.');
+      expect(await dash.submitFieldPhotoReport(locationName: 'Cibatu'), isTrue);
+
+      final reportId = dash.filteredReports.first.id;
+      final err = await dash.verifyReport(reportId, approve: true);
+      expect(err, isNull);
+      expect(dash.filteredReports.first.isCompleted, isTrue);
+      expect(dash.filteredReports.first.statusLabel, 'Selesai');
+      expect(dash.filteredReports.first.verifiedBy, isNotNull);
     });
   });
 }

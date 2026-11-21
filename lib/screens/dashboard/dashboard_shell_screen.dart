@@ -77,6 +77,9 @@ class DashboardShellScreen extends StatelessWidget {
                             key: const ValueKey('tab_history'),
                             controller: dashboardController,
                             climate: climate,
+                            isStaffVerifier:
+                                authController.activeSession?.isStaffVerifier ??
+                                    false,
                           ),
                           CalendarTabScreen(
                             key: const ValueKey('tab_calendar'),

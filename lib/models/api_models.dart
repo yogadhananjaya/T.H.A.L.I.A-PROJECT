@@ -20,6 +20,7 @@ final class AuthSession {
     this.email,
     this.phone,
     this.handle,
+    this.role = 'warga',
     this.locationName,
     this.latitude,
     this.longitude,
@@ -31,10 +32,19 @@ final class AuthSession {
   final String? email;
   final String? phone;
   final String? handle;
+  final String role;
   final String? locationName;
   final double? latitude;
   final double? longitude;
   final int? radiusKm;
+
+  /// True bila akun memiliki wewenang pegawai/petugas verifikator laporan lapangan.
+  bool get isStaffVerifier {
+    final normalized = role.toLowerCase();
+    return normalized == 'staff' ||
+        normalized == 'admin' ||
+        normalized == 'petugas';
+  }
 
   AuthSession copyWith({
     String? accessToken,
@@ -42,6 +52,7 @@ final class AuthSession {
     String? email,
     String? phone,
     String? handle,
+    String? role,
     String? locationName,
     double? latitude,
     double? longitude,
@@ -53,6 +64,7 @@ final class AuthSession {
       email: email ?? this.email,
       phone: phone ?? this.phone,
       handle: handle ?? this.handle,
+      role: role ?? this.role,
       locationName: locationName ?? this.locationName,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
@@ -66,6 +78,7 @@ final class AuthSession {
         'email': email,
         'phone': phone,
         'handle': handle,
+        'role': role,
         'location_name': locationName,
         'latitude': latitude,
         'longitude': longitude,
@@ -88,6 +101,7 @@ final class AuthSession {
       email: (user['email'] as String?) ?? (json['email'] as String?),
       phone: (user['phone'] as String?) ?? (json['phone'] as String?),
       handle: (user['handle'] as String?) ?? (json['handle'] as String?),
+      role: (user['role'] as String?) ?? (json['role'] as String?) ?? 'warga',
       locationName: (user['location_name'] as String?) ?? (json['location_name'] as String?),
       latitude: ((user['latitude'] ?? json['latitude']) as num?)?.toDouble(),
       longitude: ((user['longitude'] ?? json['longitude']) as num?)?.toDouble(),
