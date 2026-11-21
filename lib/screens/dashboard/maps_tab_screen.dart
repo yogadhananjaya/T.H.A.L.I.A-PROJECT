@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
@@ -9,6 +8,7 @@ import '../../models/dashboard_models.dart';
 import '../../widgets/dashboard/subpage_wave_header.dart';
 import '../../widgets/interactive_gps_map_card.dart';
 import '../../widgets/tactile_interaction.dart';
+import '../location_search_screen.dart';
 
 /// Tab 2: Peta Lokasi Anda (Frame 195 login_ui.figcraft)
 /// terintegrasi otomatis dengan Google Maps tiles, Geolocator GPS, & fitur pencarian lokasi Google Maps.
@@ -44,26 +44,17 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
     } catch (_) {}
   }
 
-  void _showGoogleMapsSearchSheet(BuildContext context) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: widget.climate.surfaceWhite,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(26)),
-      ),
-      builder: (ctx) {
-        return _GoogleMapsSearchModal(
-          authController: widget.authController,
-          climate: widget.climate,
-          onPlaceSelected: (place) {
-            Navigator.of(ctx).pop();
-            widget.authController.selectPlaceResult(place);
-            _moveMap(place.latitude, place.longitude);
-          },
-        );
-      },
+  /// Membuka layar Cari Lokasi (frame 22/23 desain): peta penuh, kolom cari, dan "Pilih Lokasi Ini".
+  Future<void> _openLocationSearch(BuildContext context) async {
+    final picked = await LocationSearchScreen.open(
+      context,
+      dashboardController: widget.dashboardController,
+      authController: widget.authController,
     );
+    if (picked == true && mounted) {
+      final gps = widget.authController.gpsModel;
+      _moveMap(gps.latitude, gps.longitude);
+    }
   }
 
   @override
@@ -120,6 +111,8 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                           child: FlutterMap(
                             mapController: _mapController,
                             options: MapOptions(
+                              // Transparan agar kartografi di bawahnya tetap terlihat saat tile belum dimuat.
+                              backgroundColor: Colors.transparent,
                               initialCenter: LatLng(
                                 gps.latitude,
                                 gps.longitude,
@@ -214,7 +207,7 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                           top: 14,
                           left: 14,
                           child: GestureDetector(
-                            onTap: () => _showGoogleMapsSearchSheet(context),
+                            onTap: () => _openLocationSearch(context),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 12,
@@ -347,7 +340,7 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
 
                         // Box Nama Wilayah + Tombol Ganti › (membuka pencarian Google Maps)
                         TactilePressable(
-                          onTap: () => _showGoogleMapsSearchSheet(context),
+                          onTap: () => _openLocationSearch(context),
                           child: Container(
                             height: 44,
                             padding:
@@ -439,234 +432,6 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                   ),
                 ),
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Modal Bottom Sheet Pencarian Lokasi Google Maps dengan Search Bar Interaktif.
-class _GoogleMapsSearchModal extends StatefulWidget {
-  const _GoogleMapsSearchModal({
-    required this.authController,
-    required this.climate,
-    required this.onPlaceSelected,
-  });
-
-  final AuthController authController;
-  final ClimatePalette climate;
-  final ValueChanged<PlaceSearchResult> onPlaceSelected;
-
-  @override
-  State<_GoogleMapsSearchModal> createState() => _GoogleMapsSearchModalState();
-}
-
-class _GoogleMapsSearchModalState extends State<_GoogleMapsSearchModal> {
-  final TextEditingController _searchController = TextEditingController();
-  Timer? _debounce;
-  List<PlaceSearchResult> _results = AuthController.defaultIndonesianPlaces;
-  bool _isSearching = false;
-
-  @override
-  void dispose() {
-    _debounce?.cancel();
-    _searchController.dispose();
-    super.dispose();
-  }
-
-  void _onSearchChanged(String query) {
-    _debounce?.cancel();
-    setState(() => _isSearching = true);
-    _debounce = Timer(const Duration(milliseconds: 280), () async {
-      final res = await widget.authController.searchPlaces(query);
-      if (!mounted) return;
-      setState(() {
-        _results = res;
-        _isSearching = false;
-      });
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final climate = widget.climate;
-    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(22, 14, 22, 20 + bottomInset),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: climate.border,
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Text(
-            'Cari & Pilih Wilayah Pantauan',
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: climate.primaryDark,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            'Cari nama jalan, kecamatan, atau kota di Google Maps:',
-            style: TextStyle(
-              fontSize: 12.5,
-              color: climate.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 14),
-
-          // Search Input Box Google Maps
-          Container(
-            height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 14),
-            decoration: BoxDecoration(
-              color: climate.cardFill,
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: climate.primaryBrand, width: 1.2),
-            ),
-            child: Row(
-              children: [
-                Icon(
-                  Icons.search_rounded,
-                  size: 20,
-                  color: climate.primaryBrand,
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    autofocus: true,
-                    onChanged: _onSearchChanged,
-                    style: TextStyle(
-                      fontSize: 13.5,
-                      fontWeight: FontWeight.w700,
-                      color: climate.primaryDark,
-                    ),
-                    decoration: InputDecoration(
-                      isDense: true,
-                      border: InputBorder.none,
-                      hintText: 'Cari wilayah (mis. Cikarang, Manggarai, Bogor)...',
-                      hintStyle: TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w400,
-                        color: climate.textSecondary,
-                      ),
-                    ),
-                  ),
-                ),
-                if (_isSearching)
-                  SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(
-                      strokeWidth: 2,
-                      color: climate.primaryBrand,
-                    ),
-                  )
-                else if (_searchController.text.isNotEmpty)
-                  GestureDetector(
-                    onTap: () {
-                      _searchController.clear();
-                      _onSearchChanged('');
-                    },
-                    child: Icon(
-                      Icons.close_rounded,
-                      size: 18,
-                      color: climate.textSecondary,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 12),
-
-          // Daftar Hasil Pencarian Lokasi
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxHeight: 270),
-            child: ListView.separated(
-              shrinkWrap: true,
-              itemCount: _results.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
-              itemBuilder: (context, index) {
-                final place = _results[index];
-                return TactilePressable(
-                  onTap: () => widget.onPlaceSelected(place),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 11,
-                    ),
-                    decoration: BoxDecoration(
-                      color: climate.cardFill,
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: climate.border),
-                    ),
-                    child: Row(
-                      children: [
-                        Container(
-                          width: 34,
-                          height: 34,
-                          decoration: BoxDecoration(
-                            color: climate.pillFill,
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          alignment: Alignment.center,
-                          child: Icon(
-                            Icons.location_on_outlined,
-                            size: 18,
-                            color: climate.primaryBrand,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                place.name,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 13.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: climate.primaryDark,
-                                ),
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                place.subtitle,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  fontSize: 11.5,
-                                  color: climate.textSecondary,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Icon(
-                          Icons.chevron_right_rounded,
-                          size: 18,
-                          color: climate.primaryBrand,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              },
             ),
           ),
         ],
