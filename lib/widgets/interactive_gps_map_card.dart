@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Path;
+import '../config/map_tile_cache.dart';
 import '../models/auth_models.dart';
 import '../theme/app_theme.dart';
 import 'figcraft_assets.dart';
@@ -27,6 +28,7 @@ class InteractiveGpsMapCard extends StatefulWidget {
 
 class _InteractiveGpsMapCardState extends State<InteractiveGpsMapCard> {
   final MapController _mapController = MapController();
+  final NetworkTileProvider _tileProvider = MapTileCache.createTileProvider();
 
   @override
   void didUpdateWidget(covariant InteractiveGpsMapCard oldWidget) {
@@ -92,6 +94,7 @@ class _InteractiveGpsMapCardState extends State<InteractiveGpsMapCard> {
               ),
               children: [
                 TileLayer(
+                  tileProvider: _tileProvider,
                   urlTemplate:
                       'https://mt1.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}',
                   userAgentPackageName: 'com.thalia.ui_presu',

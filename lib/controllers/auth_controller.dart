@@ -5,7 +5,10 @@ import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../models/api_models.dart';
 import '../models/auth_models.dart';
+import '../services/mock_thalia_api_service.dart';
+import '../services/thalia_api_service.dart';
 
 /// Hasil pencarian lokasi Google Maps / Geocoding.
 final class PlaceSearchResult {
@@ -28,10 +31,15 @@ final class AuthController extends ChangeNotifier {
 
   /// [hasSeenWelcome] true berarti halaman sambutan sudah pernah tampil di perangkat ini,
   /// sehingga aplikasi langsung dibuka di halaman Masuk.
-  AuthController({bool hasSeenWelcome = false})
+  ///
+  /// [authService] adalah pintu masuk ke server (atau data contoh); lihat ThaliaServices.
+  AuthController({bool hasSeenWelcome = false, AuthService? authService})
       : _hasSeenWelcome = hasSeenWelcome,
+        _authService = authService ?? MockAuthService(),
         _currentStep =
             hasSeenWelcome ? AuthScreenStep.login : AuthScreenStep.welcome;
+
+  final AuthService _authService;
 
   static const String _welcomeSeenKey = 'has_seen_welcome';
 
@@ -77,9 +85,6 @@ final class AuthController extends ChangeNotifier {
   bool _feedbackIsError = false;
   bool get feedbackIsError => _feedbackIsError;
 
-  // TODO: akun dummy sementara, ganti dengan autentikasi ke backend FastAPI.
-  static const String _dummyUsername = 'admin';
-  static const String _dummyPassword = '123';
 
   bool get isDarkMode => _themeOption == ThemeOption.dark;
 
@@ -190,20 +195,31 @@ final class AuthController extends ChangeNotifier {
     _feedbackIsError = false;
     notifyListeners();
 
-    await Future<void>.delayed(const Duration(milliseconds: 320));
-    _isSubmitting = false;
-
-    final username = _loginModel.emailOrOfficerId.trim().toLowerCase();
-    final isValid = username == _dummyUsername &&
-        _loginModel.password == _dummyPassword;
-
-    if (isValid) {
+    try {
+      await _authService.login(
+        username: _loginModel.emailOrOfficerId,
+        password: _loginModel.password,
+      );
       _currentStep = AuthScreenStep.dashboard;
-    } else {
-      _feedbackBanner = 'Username atau kata sandi salah.';
+    } on ApiException catch (e) {
+      _feedbackBanner = e.message;
       _feedbackIsError = true;
+    } catch (_) {
+      _feedbackBanner = 'Terjadi kesalahan saat masuk. Coba lagi.';
+      _feedbackIsError = true;
+    } finally {
+      _isSubmitting = false;
     }
     notifyListeners();
+  }
+
+  /// Keluar akun: hapus sesi di layanan, kosongkan form login, kembali ke halaman Masuk.
+  Future<void> logout() async {
+    try {
+      await _authService.logout();
+    } catch (_) {}
+    _loginModel = const LoginCredentialsModel();
+    navigateTo(AuthScreenStep.login);
   }
 
   // --- Fungsi Halaman Daftar Akun Baru (Register) ---
@@ -253,6 +269,10 @@ final class AuthController extends ChangeNotifier {
       );
       if (picked == null) return;
       final bytes = await picked.readAsBytes();
+      try {
+        final temp = File(picked.path);
+        if (await temp.exists()) await temp.delete();
+      } catch (_) {}
       _registerModel = _registerModel.copyWith(
         profileImageBytes: bytes,
         profileImageName: picked.name,

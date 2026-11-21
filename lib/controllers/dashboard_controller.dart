@@ -1,12 +1,20 @@
+import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import '../models/api_models.dart';
 import '../models/dashboard_models.dart';
-import '../widgets/figcraft_assets.dart';
+import '../services/thalia_api_service.dart';
 
 /// Controller OOP untuk seluruh fitur Dashboard, Maps, Kamera + Form Lens, Riwayat, Kalender, & Profil.
+///
+/// Data prakiraan dan laporan diambil lewat [ThaliaApiService] (disuntikkan lewat konstruktor),
+/// sehingga controller ini tidak tahu apakah datanya dari server sungguhan atau data contoh.
 final class DashboardController extends ChangeNotifier {
+  DashboardController({required ThaliaApiService api}) : _api = api;
+
+  final ThaliaApiService _api;
   final ImagePicker _picker = ImagePicker();
 
   DashboardTab _activeTab = DashboardTab.home;
@@ -24,6 +32,23 @@ final class DashboardController extends ChangeNotifier {
 
   int _monitoringRadiusKm = 5;
   int get monitoringRadiusKm => _monitoringRadiusKm;
+
+  // --- State pemuatan data dari API ---
+  bool _isLoading = false;
+  bool get isLoading => _isLoading;
+
+  String? _loadError;
+
+  /// Pesan galat terakhir dari server, null bila pemuatan terakhir berhasil.
+  String? get loadError => _loadError;
+
+  bool _isSampleData = true;
+
+  /// true selama belum ada jawaban sukses dari layanan data; yang tampil masih data contoh.
+  bool get isSampleData => _isSampleData;
+
+  double _latitude = -6.2845;
+  double _longitude = 107.1705;
 
   // State Kamera & Pop-up Form Laporan Foto (Google Lens style)
   String _flashMode = 'Auto';
@@ -60,99 +85,13 @@ final class DashboardController extends ChangeNotifier {
 
   static const Set<int> rainyCalendarDays = {8, 12, 15, 20, 23};
 
-  final List<ForecastDayModel> forecastDays = const [
-    ForecastDayModel(
-      dayShort: 'Sen',
-      dateShort: '12/5',
-      temperatureC: 26,
-      conditionTitle: 'Hujan Ringan',
-      conditionSubtitle: 'Curah 2.0 mm/jam • Status Aman',
-      iconAsset: FigcraftAssets.weatherIconRain,
-      humidityText: 'Lembap 77%',
-      waterLevelText: 'Air 110 cm',
-      soilText: 'Tanah 52%',
-    ),
-    ForecastDayModel(
-      dayShort: 'Sel',
-      dateShort: '13/5',
-      temperatureC: 28,
-      conditionTitle: 'Berawan Cerah',
-      conditionSubtitle: 'Curah 0.4 mm/jam • Status Aman',
-      iconAsset: FigcraftAssets.weatherIconPartly,
-      humidityText: 'Lembap 70%',
-      waterLevelText: 'Air 98 cm',
-      soilText: 'Tanah 48%',
-    ),
-    ForecastDayModel(
-      dayShort: 'Rab',
-      dateShort: '14/5',
-      temperatureC: 27,
-      conditionTitle: 'Mendung Tebal',
-      conditionSubtitle: 'Curah 1.2 mm/jam • Status Aman',
-      iconAsset: FigcraftAssets.weatherIconCloud,
-      humidityText: 'Lembap 74%',
-      waterLevelText: 'Air 105 cm',
-      soilText: 'Tanah 50%',
-    ),
-    ForecastDayModel(
-      dayShort: 'Kam',
-      dateShort: '15/5',
-      temperatureC: 31,
-      conditionTitle: 'Cerah Terik',
-      conditionSubtitle: 'Indeks UV 9 (Tinggi) • Terasa 34°C',
-      iconAsset: FigcraftAssets.weatherIconSun,
-      humidityText: 'Lembap 48%',
-      waterLevelText: 'Air 82 cm',
-      soilText: 'Tanah 34%',
-      triggersDryOrangePreview: true,
-    ),
-    ForecastDayModel(
-      dayShort: 'Jum',
-      dateShort: '16/5',
-      temperatureC: 25,
-      conditionTitle: 'Hujan Petir',
-      conditionSubtitle: 'Curah 14.5 mm/jam • Waspada',
-      iconAsset: FigcraftAssets.weatherIconStorm,
-      humidityText: 'Lembap 86%',
-      waterLevelText: 'Air 135 cm',
-      soilText: 'Tanah 64%',
-    ),
-  ];
+  List<ForecastDayModel> _forecastDays = ForecastDayModel.samples;
+  List<ForecastDayModel> get forecastDays => _forecastDays;
 
-  ForecastDayModel get currentForecast => forecastDays[_selectedForecastIndex];
+  ForecastDayModel get currentForecast => _forecastDays[_selectedForecastIndex];
 
-  final List<FieldReportItemModel> _reports = [
-    const FieldReportItemModel(
-      id: 'RPT-1',
-      title: 'Luapan Pintu Air Manggarai',
-      timeAndHabitat: 'Hari Ini, 14:20 • Hidrosfer',
-      metricSummary: 'Tinggi Air 110 cm • pH 6.8',
-      statusLabel: 'Diterima',
-      isCompleted: false,
-      iconAsset: FigcraftAssets.weatherIconRain,
-      accentBarColor: Color(0xFF245E96),
-    ),
-    const FieldReportItemModel(
-      id: 'RPT-2',
-      title: 'Kelembapan Lereng Bukit Selatan',
-      timeAndHabitat: 'Kemarin, 09:15 • Litosfer',
-      metricSummary: 'Tanah 52% • Lereng Stabil',
-      statusLabel: 'Selesai',
-      isCompleted: true,
-      iconAsset: FigcraftAssets.weatherIconPartly,
-      accentBarColor: Color(0xFF1F5E96),
-    ),
-    const FieldReportItemModel(
-      id: 'RPT-3',
-      title: 'Curah Hujan Lokal Cikarang',
-      timeAndHabitat: '10 Mei 2026 • Atmosfer',
-      metricSummary: 'Suhu 26°C • Hujan 2.0 mm/jam',
-      statusLabel: 'Selesai',
-      isCompleted: true,
-      iconAsset: FigcraftAssets.weatherIconCloud,
-      accentBarColor: Color(0xFFDF9A42),
-    ),
-  ];
+  List<FieldReportItemModel> _reports =
+      List<FieldReportItemModel>.of(FieldReportItemModel.samples);
 
   List<FieldReportItemModel> get filteredReports {
     switch (_reportFilter) {
@@ -165,11 +104,49 @@ final class DashboardController extends ChangeNotifier {
     }
   }
 
-  int get totalReportsCount => _reports.length + 9;
-  int get completedReportsCount =>
-      _reports.where((r) => r.isCompleted).length + 8;
+  int get totalReportsCount => _reports.length;
+  int get completedReportsCount => _reports.where((r) => r.isCompleted).length;
   int get inProgressReportsCount =>
-      _reports.where((r) => !r.isCompleted).length + 1;
+      _reports.where((r) => !r.isCompleted).length;
+
+  // --- Pemuatan data dari API ---
+
+  /// Mengambil prakiraan dan riwayat laporan untuk koordinat tertentu.
+  /// Bila gagal, data yang sedang tampil dipertahankan dan [loadError] terisi.
+  Future<void> loadDashboardData({
+    required double latitude,
+    required double longitude,
+  }) async {
+    if (_isLoading) return;
+    _latitude = latitude;
+    _longitude = longitude;
+    _isLoading = true;
+    _loadError = null;
+    notifyListeners();
+
+    try {
+      final forecast =
+          await _api.fetchForecast(latitude: latitude, longitude: longitude);
+      final reports = await _api.fetchReports();
+
+      if (forecast.isNotEmpty) {
+        _forecastDays = forecast;
+        if (_selectedForecastIndex >= forecast.length) _selectedForecastIndex = 0;
+        _seasonMode = currentForecast.triggersDryOrangePreview
+            ? SeasonMode.dryOrange
+            : SeasonMode.rainyBlue;
+      }
+      _reports = List<FieldReportItemModel>.of(reports);
+      _isSampleData = false;
+    } on ApiException catch (e) {
+      _loadError = e.message;
+    } catch (_) {
+      _loadError = 'Gagal memuat data. Coba lagi.';
+    } finally {
+      _isLoading = false;
+    }
+    notifyListeners();
+  }
 
   // --- Navigasi Tab & Profil ---
   void selectTab(DashboardTab tab) {
@@ -190,9 +167,9 @@ final class DashboardController extends ChangeNotifier {
 
   // --- Pilih Hari Prakiraan & Tema Musim ---
   void selectForecastDay(int index) {
-    if (index < 0 || index >= forecastDays.length) return;
+    if (index < 0 || index >= _forecastDays.length) return;
     _selectedForecastIndex = index;
-    _seasonMode = forecastDays[index].triggersDryOrangePreview
+    _seasonMode = _forecastDays[index].triggersDryOrangePreview
         ? SeasonMode.dryOrange
         : SeasonMode.rainyBlue;
     notifyListeners();
@@ -242,6 +219,7 @@ final class DashboardController extends ChangeNotifier {
       );
       if (picked != null) {
         _capturedPhotoBytes = await picked.readAsBytes();
+        await _deleteTempFile(picked.path);
         _showLensReportSheet = true;
         notifyListeners();
         return;
@@ -252,6 +230,14 @@ final class DashboardController extends ChangeNotifier {
 
     _showLensReportSheet = true;
     notifyListeners();
+  }
+
+  /// File foto sementara (hasil kamera/galeri) tidak dibutuhkan lagi setelah dibaca ke memori.
+  Future<void> _deleteTempFile(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (_) {}
   }
 
   void retakePhoto() {
@@ -270,28 +256,48 @@ final class DashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  void submitFieldPhotoReport({required String locationName}) {
-    final trimmed = _reportDescription.trim();
+  /// Laporan langsung muncul di Riwayat dengan status "Mengirim", lalu diperbarui
+  /// sesuai jawaban server (atau "Gagal Kirim" bila server tidak terjangkau).
+  Future<void> submitFieldPhotoReport({required String locationName}) async {
+    final draft = FieldReportDraft(
+      category: _selectedIncidentCategory,
+      description: _reportDescription.trim(),
+      latitude: _latitude,
+      longitude: _longitude,
+      locationName: locationName,
+      capturedAt: DateTime.now(),
+      photoBytes: _capturedPhotoBytes,
+    );
+
+    final localId = 'LOCAL-${DateTime.now().microsecondsSinceEpoch}';
     _reports.insert(
       0,
-      FieldReportItemModel(
-        id: 'RPT-${_reports.length + 1}',
-        title: 'Laporan $_selectedIncidentCategory • $locationName',
-        timeAndHabitat: 'Baru saja, 09:41 • Lapangan',
-        metricSummary: trimmed.isEmpty
-            ? 'Dokumentasi visual terlampir'
-            : (trimmed.length > 38 ? '${trimmed.substring(0, 38)}...' : trimmed),
-        statusLabel: 'Diterima',
-        isCompleted: false,
-        iconAsset: FigcraftAssets.weatherIconRain,
-        accentBarColor: const Color(0xFF245E96),
-        capturedPhotoBytes: _capturedPhotoBytes,
-        categoryLabel: _selectedIncidentCategory,
-      ),
+      FieldReportItemModel.fromDraft(draft, id: localId)
+          .copyWith(statusLabel: 'Mengirim'),
     );
     _showLensReportSheet = false;
     _activeTab = DashboardTab.history;
     notifyListeners();
+
+    try {
+      final saved = await _api.submitReport(draft);
+      _replaceReport(
+        localId,
+        (local) => saved.copyWith(capturedPhotoBytes: local.capturedPhotoBytes),
+      );
+    } catch (_) {
+      _replaceReport(localId, (local) => local.copyWith(statusLabel: 'Gagal Kirim'));
+    }
+    notifyListeners();
+  }
+
+  void _replaceReport(
+    String id,
+    FieldReportItemModel Function(FieldReportItemModel local) build,
+  ) {
+    final index = _reports.indexWhere((r) => r.id == id);
+    if (index == -1) return;
+    _reports[index] = build(_reports[index]);
   }
 
   // --- Filter Riwayat & Kalender ---

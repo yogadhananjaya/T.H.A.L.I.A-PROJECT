@@ -239,7 +239,7 @@ class ProfileScreen extends StatelessWidget {
                 TactilePressable(
                   onTap: () {
                     dashboardController.closeProfile();
-                    authController.navigateTo(AuthScreenStep.login);
+                    authController.logout();
                   },
                   child: Container(
                     width: double.infinity,

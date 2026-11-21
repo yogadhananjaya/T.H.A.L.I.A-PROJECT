@@ -27,14 +27,16 @@ android {
         // flag during build.
         versionCode = flutter.versionCode
         versionName = flutter.versionName
-
-        ndk {
-            // Hanya bundle ABI 64-bit modern (emulator x86_64 & HP arm64-v8a), buang 32-bit lawas
-            abiFilters += listOf("x86_64", "arm64-v8a")
-        }
     }
 
     buildTypes {
+        debug {
+            // Debug hanya membawa ABI 64-bit (emulator x86_64 & HP arm64-v8a), buang 32-bit lawas.
+            // Sengaja tidak dipasang di release supaya `flutter build apk --split-per-abi` bisa jalan.
+            ndk {
+                abiFilters += listOf("x86_64", "arm64-v8a")
+            }
+        }
         release {
             isMinifyEnabled = true
             isShrinkResources = true

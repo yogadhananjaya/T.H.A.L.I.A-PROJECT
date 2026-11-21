@@ -1,10 +1,13 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:ui_presu/main.dart';
 
 void main() {
   testWidgets(
       'Full journey: Selamat Datang -> Masuk Akun -> Dashboard -> Forecast Day Animation -> Profil -> Pengaturan',
       (WidgetTester tester) async {
+    SharedPreferences.setMockInitialValues({});
     await tester.pumpWidget(const ThaliaApp());
     await tester.pump(const Duration(milliseconds: 600));
 
@@ -19,7 +22,10 @@ void main() {
 
     expect(find.text('Masuk Akun'), findsOneWidget);
 
-    // 2. Klik Masuk ke Dashboard -> masuk ke Dashboard Utama (Biru Basic)
+    // 2. Isi akun contoh (admin / 123) lalu klik Masuk ke Dashboard -> Dashboard Utama (Biru Basic)
+    await tester.enterText(find.byType(TextField).at(0), 'admin');
+    await tester.enterText(find.byType(TextField).at(1), '123');
+    await tester.pump();
     final loginBtn = find.text('Masuk ke Dashboard');
     await tester.ensureVisible(loginBtn);
     await tester.pump();
