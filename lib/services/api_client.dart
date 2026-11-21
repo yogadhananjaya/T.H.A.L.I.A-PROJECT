@@ -1,13 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
-import 'dart:io';
 import 'dart:typed_data';
+import 'package:http/http.dart' as http;
 import '../config/api_config.dart';
 import '../models/api_models.dart';
 
-/// Klien HTTP tunggal untuk semua panggilan ke backend FastAPI.
-/// Menggunakan ulang satu [HttpClient] (B35), menangani 401 otomatis,
-/// dan mendukung unggah foto multipart (B31).
+/// Klien HTTP tunggal lintas platform (Android, iOS, & Chrome Web) untuk semua panggilan ke backend FastAPI.
+/// Menggunakan ulang satu [http.Client] (B35), retry dengan exponential backoff,
+/// menangani 401 otomatis, dan mendukung unggah foto multipart (B31).
 final class ApiClient {
   ApiClient({String? baseUrl, Duration? timeout})
       : baseUrl = baseUrl ?? ApiConfig.baseUrl,
@@ -22,11 +22,11 @@ final class ApiClient {
   /// Dipanggil otomatis saat server mengembalikan HTTP 401 (sesi habis / tidak sah, B35).
   void Function()? onUnauthorized;
 
-  HttpClient? _client;
-  HttpClient get _http => _client ??= (HttpClient()..connectionTimeout = timeout);
+  http.Client? _client;
+  http.Client get _http => _client ??= http.Client();
 
   void close() {
-    _client?.close(force: true);
+    _client?.close();
     _client = null;
   }
 
@@ -55,8 +55,10 @@ final class ApiClient {
       try {
         return await _send(method, path, query: query);
       } on ApiException catch (e) {
-        final isTransientStatus =
-            e.statusCode == null || e.statusCode == 502 || e.statusCode == 503 || e.statusCode == 504;
+        final isTransientStatus = e.statusCode == null ||
+            e.statusCode == 502 ||
+            e.statusCode == 503 ||
+            e.statusCode == 504;
         if (!isTransientStatus || attempt == maxRetries) {
           rethrow;
         }
@@ -75,57 +77,50 @@ final class ApiClient {
   }) async {
     final uri = Uri.parse('$baseUrl$path');
     final uploadTimeout = ApiConfig.uploadTimeout;
-    final boundary = '----ThaliaBoundary${DateTime.now().microsecondsSinceEpoch}';
+    final token = accessToken;
 
     try {
-      final request = await _http.openUrl('POST', uri).timeout(uploadTimeout);
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(
-        HttpHeaders.contentTypeHeader,
-        'multipart/form-data; boundary=$boundary',
-      );
-      final token = accessToken;
+      final request = http.MultipartRequest('POST', uri);
+      request.headers['Accept'] = 'application/json';
+      request.headers['X-Request-ID'] =
+          'thalia-${DateTime.now().microsecondsSinceEpoch}';
       if (token != null) {
-        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+        request.headers['Authorization'] = 'Bearer $token';
       }
-
-      for (final entry in fields.entries) {
-        request.add(utf8.encode('--$boundary\r\n'));
-        request.add(
-          utf8.encode('Content-Disposition: form-data; name="${entry.key}"\r\n\r\n'),
-        );
-        request.add(utf8.encode('${entry.value}\r\n'));
-      }
+      request.fields.addAll(fields);
 
       if (fileBytes != null && fileBytes.isNotEmpty) {
-        request.add(utf8.encode('--$boundary\r\n'));
-        request.add(
-          utf8.encode(
-            'Content-Disposition: form-data; name="$fileField"; filename="$fileName"\r\n'
-            'Content-Type: image/jpeg\r\n\r\n',
+        request.files.add(
+          http.MultipartFile.fromBytes(
+            fileField,
+            fileBytes,
+            filename: fileName,
           ),
         );
-        request.add(fileBytes);
-        request.add(utf8.encode('\r\n'));
       }
 
-      request.add(utf8.encode('--$boundary--\r\n'));
-
-      final response = await request.close().timeout(uploadTimeout);
-      final text =
-          await response.transform(utf8.decoder).join().timeout(uploadTimeout);
-
-      return _handleResponse(response.statusCode, text, hadToken: token != null);
+      final streamed = await _http.send(request).timeout(uploadTimeout);
+      final response =
+          await http.Response.fromStream(streamed).timeout(uploadTimeout);
+      return _handleResponse(
+        response.statusCode,
+        response.body,
+        hadToken: token != null,
+      );
     } on ApiException {
       rethrow;
     } on TimeoutException {
       throw const ApiException('Unggahan memakan waktu terlalu lama. Coba lagi.');
-    } on SocketException {
+    } on http.ClientException {
       throw const ApiException(
         'Tidak bisa terhubung ke server. Periksa alamat API dan koneksi.',
       );
     } on FormatException {
       throw const ApiException('Jawaban server tidak berformat JSON yang valid.');
+    } catch (_) {
+      throw const ApiException(
+        'Tidak bisa terhubung ke server. Periksa alamat API dan koneksi.',
+      );
     }
   }
 
@@ -140,40 +135,52 @@ final class ApiClient {
       uri = uri.replace(queryParameters: query);
     }
 
+    final token = accessToken;
+    final headers = <String, String>{
+      'Accept': 'application/json',
+      'X-Request-ID': 'thalia-${DateTime.now().microsecondsSinceEpoch}',
+      if (path.contains('/auth/')) 'Cache-Control': 'no-store',
+      if (token != null) 'Authorization': 'Bearer $token',
+      if (body != null) 'Content-Type': 'application/json',
+    };
+
     try {
-      final request = await _http.openUrl(method, uri).timeout(timeout);
-      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
-      request.headers.set(
-        'X-Request-ID',
-        'thalia-${DateTime.now().microsecondsSinceEpoch}',
+      final http.Response response;
+      final encodedBody = body != null ? jsonEncode(body) : null;
+      switch (method) {
+        case 'GET':
+          response = await _http.get(uri, headers: headers).timeout(timeout);
+        case 'POST':
+          response = await _http
+              .post(uri, headers: headers, body: encodedBody)
+              .timeout(timeout);
+        case 'PUT':
+          response = await _http
+              .put(uri, headers: headers, body: encodedBody)
+              .timeout(timeout);
+        default:
+          throw ApiException('Metode HTTP tidak didukung: $method');
+      }
+
+      return _handleResponse(
+        response.statusCode,
+        response.body,
+        hadToken: token != null,
       );
-      if (path.contains('/auth/')) {
-        request.headers.set(HttpHeaders.cacheControlHeader, 'no-store');
-      }
-      final token = accessToken;
-      if (token != null) {
-        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
-      }
-      if (body != null) {
-        request.headers.contentType = ContentType.json;
-        request.add(utf8.encode(jsonEncode(body)));
-      }
-
-      final response = await request.close().timeout(timeout);
-      final text =
-          await response.transform(utf8.decoder).join().timeout(timeout);
-
-      return _handleResponse(response.statusCode, text, hadToken: token != null);
     } on ApiException {
       rethrow;
     } on TimeoutException {
       throw const ApiException('Server tidak merespons. Coba lagi sebentar.');
-    } on SocketException {
+    } on http.ClientException {
       throw const ApiException(
         'Tidak bisa terhubung ke server. Periksa alamat API dan koneksi.',
       );
     } on FormatException {
       throw const ApiException('Jawaban server tidak berformat JSON yang valid.');
+    } catch (_) {
+      throw const ApiException(
+        'Tidak bisa terhubung ke server. Periksa alamat API dan koneksi.',
+      );
     }
   }
 
@@ -182,12 +189,12 @@ final class ApiClient {
     String text, {
     required bool hadToken,
   }) {
-    if (statusCode == HttpStatus.unauthorized && hadToken) {
+    if (statusCode == 401 && hadToken) {
       accessToken = null;
       onUnauthorized?.call();
       throw const ApiException(
         'Sesi Anda telah berakhir. Silakan masuk kembali.',
-        statusCode: HttpStatus.unauthorized,
+        statusCode: 401,
       );
     }
     if (statusCode < 200 || statusCode >= 300) {

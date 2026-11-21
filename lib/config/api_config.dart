@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 /// Satu-satunya tempat untuk mengatur alamat dan jalur API T.H.A.L.I.A.
 ///
 /// Nilai bisa diganti tanpa mengubah kode lewat `--dart-define`, misalnya:
@@ -14,11 +16,16 @@ final class ApiConfig {
   static const bool useMockData =
       bool.fromEnvironment('THALIA_USE_MOCK', defaultValue: false);
 
+  static const String _envApiUrl =
+      String.fromEnvironment('THALIA_API_URL', defaultValue: '');
+
   /// Alamat server FastAPI, tanpa garis miring di akhir.
-  /// Emulator Android: `10.0.2.2` berarti localhost laptop.
-  /// HP fisik: pakai IP laptop di jaringan yang sama, mis. `http://192.168.1.10:8000`.
-  static const String baseUrl =
-      String.fromEnvironment('THALIA_API_URL', defaultValue: 'http://10.0.2.2:8000');
+  /// Chrome / Web: `http://127.0.0.1:8000`
+  /// Emulator Android: `http://10.0.2.2:8000`
+  /// HP fisik: pakai `--dart-define=THALIA_API_URL=http://IP_LAPTOP:8000`.
+  static String get baseUrl => _envApiUrl.isNotEmpty
+      ? _envApiUrl
+      : (kIsWeb ? 'http://127.0.0.1:8000' : 'http://10.0.2.2:8000');
 
   /// Batas waktu tunggu satu permintaan standar ke server.
   static const Duration requestTimeout = Duration(seconds: 8);
