@@ -1,0 +1,4 @@
+# Kredensial Wi-Fi & IP lokal (JANGAN pernah di-commit ke repo publik)
+secrets.py
+__pycache__/
+*.pyc
