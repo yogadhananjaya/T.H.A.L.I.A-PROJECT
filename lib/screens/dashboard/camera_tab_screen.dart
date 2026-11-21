@@ -79,10 +79,10 @@ class _CameraTabScreenState extends State<CameraTabScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (_dash.showLensReportSheet) return;
+    if (_dash.showLensReportSheet || _requestingPermission) return;
     switch (state) {
       case AppLifecycleState.resumed:
-        if (_cam == null && !_requestingPermission) _startCamera();
+        if (_cam == null) _startCamera();
       case AppLifecycleState.paused:
       case AppLifecycleState.hidden:
         _stopCamera();
@@ -137,7 +137,7 @@ class _CameraTabScreenState extends State<CameraTabScreen>
       );
       final controller = CameraController(
         description,
-        ResolutionPreset.high,
+        ResolutionPreset.medium,
         enableAudio: false,
         imageFormatGroup: ImageFormatGroup.jpeg,
       );
@@ -412,7 +412,7 @@ class _CameraTabScreenState extends State<CameraTabScreen>
                               ),
                             ),
                             child: Text(
-                              '$shortArea • 09:41 WIB',
+                              '$shortArea • ${_dash.formattedCaptureTime}',
                               style: const TextStyle(
                                 fontSize: 11.5,
                                 fontWeight: FontWeight.w700,

@@ -5,6 +5,8 @@ import '../../widgets/dashboard/subpage_wave_header.dart';
 import '../../widgets/tactile_interaction.dart';
 
 /// Tab 4: Riwayat Laporan (Frame 347 login_ui.figcraft).
+/// Mendukung pull-to-refresh (B04), detail laporan (B23), empty state (B23),
+/// serta tombol kirim ulang untuk laporan lokal yang gagal (B13).
 class HistoryTabScreen extends StatelessWidget {
   const HistoryTabScreen({
     super.key,
@@ -15,78 +17,275 @@ class HistoryTabScreen extends StatelessWidget {
   final DashboardController controller;
   final ClimatePalette climate;
 
+  void _showReportDetail(BuildContext context, FieldReportItemModel report) {
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: climate.surfaceWhite,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      report.title,
+                      style: TextStyle(
+                        fontSize: 17,
+                        fontWeight: FontWeight.w800,
+                        color: climate.primaryDark,
+                      ),
+                    ),
+                  ),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: climate.pillFill,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      report.statusLabel,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        fontWeight: FontWeight.w800,
+                        color: climate.primaryBrand,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                report.timeAndHabitat,
+                style: TextStyle(fontSize: 12.5, color: climate.textSecondary),
+              ),
+              if (report.gpsCoordinates != null) ...[
+                const SizedBox(height: 4),
+                Text(
+                  'Koordinat GPS: ${report.gpsCoordinates}',
+                  style: TextStyle(fontSize: 12, color: climate.textSecondary),
+                ),
+              ],
+              if (report.capturedPhotoBytes != null) ...[
+                const SizedBox(height: 14),
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(14),
+                  child: Image.memory(
+                    report.capturedPhotoBytes!,
+                    width: double.infinity,
+                    height: 190,
+                    fit: BoxFit.cover,
+                    cacheWidth: 800,
+                  ),
+                ),
+              ],
+              const SizedBox(height: 14),
+              Text(
+                report.fullDescription ?? report.metricSummary,
+                style: TextStyle(
+                  fontSize: 13.5,
+                  height: 1.45,
+                  color: climate.primaryDark,
+                ),
+              ),
+              if (report.isFailed) ...[
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: () {
+                      Navigator.of(ctx).pop();
+                      controller.retryFailedReport(report.id);
+                    },
+                    icon: const Icon(Icons.refresh_rounded, size: 18),
+                    label: const Text('Kirim Ulang Laporan'),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final filter = controller.reportFilter;
     final reports = controller.filteredReports;
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SubpageWaveHeader(
-            climate: climate,
-            eyebrowText: 'Catatan Laporan Lapangan',
-            titleText: 'Riwayat Laporan',
-            onTapProfile: controller.openProfile,
-          ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(26, 14, 26, 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // 1. Baris Filter Pill: Semua (12) | Selesai (10) | Proses (2)
-                SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      _FilterPill(
-                        label: 'Semua (${controller.totalReportsCount})',
-                        isSelected: filter == ReportFilterTab.all,
-                        climate: climate,
-                        onTap: () =>
-                            controller.setReportFilter(ReportFilterTab.all),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterPill(
-                        label: 'Selesai (${controller.completedReportsCount})',
-                        isSelected: filter == ReportFilterTab.completed,
-                        climate: climate,
-                        onTap: () => controller
-                            .setReportFilter(ReportFilterTab.completed),
-                      ),
-                      const SizedBox(width: 8),
-                      _FilterPill(
-                        label: 'Proses (${controller.inProgressReportsCount})',
-                        isSelected: filter == ReportFilterTab.inProgress,
-                        climate: climate,
-                        onTap: () => controller
-                            .setReportFilter(ReportFilterTab.inProgress),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 14),
-
-                // 2. Daftar Kartu Laporan Lapangan dengan animasi masuk halus
-                ...List.generate(reports.length, (index) {
-                  final report = reports[index];
-                  return StaggeredEntrance(
-                    delayMs: 50 + (index * 55),
-                    child: Padding(
+    return RefreshIndicator(
+      onRefresh: controller.refresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SubpageWaveHeader(
+              climate: climate,
+              eyebrowText: 'Catatan Laporan Lapangan',
+              titleText: 'Riwayat Laporan',
+              onTapProfile: controller.openProfile,
+            ),
+            if (controller.isLoading)
+              const LinearProgressIndicator(minHeight: 3),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(26, 14, 26, 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  if (controller.loadError != null)
+                    Padding(
                       padding: const EdgeInsets.only(bottom: 12),
-                      child: _ReportHistoryCard(
-                        report: report,
-                        climate: climate,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 8,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEFEA),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(color: const Color(0xFFE07A5F)),
+                        ),
+                        child: Row(
+                          children: [
+                            const Icon(
+                              Icons.cloud_off_rounded,
+                              size: 16,
+                              color: Color(0xFFB33A22),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                controller.loadError!,
+                                style: const TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w600,
+                                  color: Color(0xFF8C2714),
+                                ),
+                              ),
+                            ),
+                            TextButton(
+                              onPressed: controller.refresh,
+                              child: const Text(
+                                'Muat Ulang',
+                                style: TextStyle(
+                                  fontSize: 11.5,
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
-                  );
-                }),
-              ],
+
+                  // 1. Baris Filter Pill
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        _FilterPill(
+                          label: 'Semua (${controller.totalReportsCount})',
+                          isSelected: filter == ReportFilterTab.all,
+                          climate: climate,
+                          onTap: () =>
+                              controller.setReportFilter(ReportFilterTab.all),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterPill(
+                          label: 'Selesai (${controller.completedReportsCount})',
+                          isSelected: filter == ReportFilterTab.completed,
+                          climate: climate,
+                          onTap: () => controller
+                              .setReportFilter(ReportFilterTab.completed),
+                        ),
+                        const SizedBox(width: 8),
+                        _FilterPill(
+                          label: 'Proses (${controller.inProgressReportsCount})',
+                          isSelected: filter == ReportFilterTab.inProgress,
+                          climate: climate,
+                          onTap: () => controller
+                              .setReportFilter(ReportFilterTab.inProgress),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // 2. Empty state atau Daftar Kartu Laporan (B23)
+                  if (reports.isEmpty)
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 20,
+                        vertical: 34,
+                      ),
+                      decoration: BoxDecoration(
+                        color: climate.cardFill,
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: climate.border),
+                      ),
+                      child: Column(
+                        children: [
+                          Icon(
+                            Icons.inbox_outlined,
+                            size: 40,
+                            color: climate.textSecondary,
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Belum ada laporan pada kategori ini.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w700,
+                              color: climate.primaryDark,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Gunakan tab Kamera untuk mengirim laporan kondisi lapangan terbaru.',
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: climate.textSecondary,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else
+                    ...List.generate(reports.length, (index) {
+                      final report = reports[index];
+                      return StaggeredEntrance(
+                        delayMs: 50 + (index * 55),
+                        child: Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: _ReportHistoryCard(
+                            report: report,
+                            climate: climate,
+                            onTap: () => _showReportDetail(context, report),
+                            onRetry: report.isFailed
+                                ? () => controller.retryFailedReport(report.id)
+                                : null,
+                          ),
+                        ),
+                      );
+                    }),
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -136,31 +335,38 @@ class _ReportHistoryCard extends StatelessWidget {
   const _ReportHistoryCard({
     required this.report,
     required this.climate,
+    required this.onTap,
+    this.onRetry,
   });
 
   final FieldReportItemModel report;
   final ClimatePalette climate;
+  final VoidCallback onTap;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
     return TactilePressable(
-      onTap: () {},
+      onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: climate.cardFill,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: climate.border),
+          border: Border.all(
+            color: report.isFailed ? const Color(0xFFE07A5F) : climate.border,
+          ),
         ),
         child: IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // Garis aksen vertikal kiri sesuai Frame 347
               Container(
                 width: 4,
                 decoration: BoxDecoration(
-                  color: report.accentBarColor,
+                  color: report.isFailed
+                      ? const Color(0xFFD9534F)
+                      : report.accentBarColor,
                   borderRadius: BorderRadius.circular(4),
                 ),
               ),
@@ -203,6 +409,7 @@ class _ReportHistoryCard extends StatelessWidget {
                               report.capturedPhotoBytes!,
                               width: 42,
                               height: 42,
+                              cacheWidth: 120,
                               fit: BoxFit.cover,
                             ),
                           )
@@ -225,23 +432,50 @@ class _ReportHistoryCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 5,
-                      ),
-                      decoration: BoxDecoration(
-                        color: climate.pillFill,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        '• ${report.statusLabel}',
-                        style: TextStyle(
-                          fontSize: 11.5,
-                          fontWeight: FontWeight.w800,
-                          color: climate.primaryBrand,
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 5,
+                          ),
+                          decoration: BoxDecoration(
+                            color: report.isFailed
+                                ? const Color(0xFFFFEFEA)
+                                : climate.pillFill,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            '• ${report.statusLabel}',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w800,
+                              color: report.isFailed
+                                  ? const Color(0xFFB33A22)
+                                  : climate.primaryBrand,
+                            ),
+                          ),
                         ),
-                      ),
+                        if (onRetry != null) ...[
+                          const Spacer(),
+                          TextButton.icon(
+                            onPressed: onRetry,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            icon: const Icon(Icons.refresh_rounded, size: 15),
+                            label: const Text(
+                              'Kirim Ulang',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
                     ),
                   ],
                 ),

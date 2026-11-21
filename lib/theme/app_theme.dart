@@ -66,7 +66,14 @@ final class ThaliaPalette {
 }
 
 abstract final class AppTheme {
-  static ThemeData build({required bool isDark}) {
+  static final ThemeData _lightTheme = _create(isDark: false);
+  static final ThemeData _darkTheme = _create(isDark: true);
+
+  /// Mengembalikan instance [ThemeData] yang di-cache agar tidak memicu alokasi ulang tiap ketikan (B30).
+  static ThemeData build({required bool isDark}) =>
+      isDark ? _darkTheme : _lightTheme;
+
+  static ThemeData _create({required bool isDark}) {
     final palette = ThaliaPalette(isDark: isDark);
     return ThemeData(
       useMaterial3: true,

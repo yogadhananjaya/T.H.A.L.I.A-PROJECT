@@ -174,7 +174,7 @@ final class ForecastDayModel {
       humidityText: 'Lembap ${humidity ?? '-'}%',
       waterLevelText: 'Air ${water ?? '-'} cm',
       soilText: 'Tanah ${soil ?? '-'}%',
-      triggersDryOrangePreview: code == 'sunny' || code == 'clear',
+      triggersDryOrangePreview: false, // Tema tidak diubah oranye hanya karena satu hari cerah (B29).
     );
   }
 
@@ -276,6 +276,27 @@ final class ForecastDayModel {
       soilText: 'Tanah 64%',
     ),
   ];
+
+  /// Membangun data contoh prakiraan 5 hari berbasis tanggal sistem saat ini (B26).
+  static List<ForecastDayModel> samplesForToday([DateTime? anchor]) {
+    final now = anchor ?? DateTime.now();
+    return List<ForecastDayModel>.generate(samples.length, (i) {
+      final d = now.add(Duration(days: i));
+      final base = samples[i];
+      return ForecastDayModel(
+        dayShort: _dayShortNames[d.weekday - 1],
+        dateShort: '${d.day}/${d.month}',
+        temperatureC: base.temperatureC,
+        conditionTitle: base.conditionTitle,
+        conditionSubtitle: base.conditionSubtitle,
+        iconAsset: base.iconAsset,
+        humidityText: base.humidityText,
+        waterLevelText: base.waterLevelText,
+        soilText: base.soilText,
+        triggersDryOrangePreview: false,
+      );
+    });
+  }
 }
 
 enum ReportFilterTab {
@@ -301,6 +322,10 @@ final class FieldReportItemModel {
     this.capturedPhotoBytes,
     this.categoryLabel,
     this.gpsCoordinates,
+    this.fullDescription,
+    this.isFailed = false,
+    this.isSyncing = false,
+    this.pendingDraft,
   });
 
   final String id;
@@ -314,10 +339,27 @@ final class FieldReportItemModel {
   final Uint8List? capturedPhotoBytes;
   final String? categoryLabel;
   final String? gpsCoordinates;
+  final String? fullDescription;
+  final bool isFailed;
+  final bool isSyncing;
+  final FieldReportDraft? pendingDraft;
+
+  static String _mapStatusLabel(String status) {
+    switch (status) {
+      case 'completed':
+      case 'verified':
+        return 'Selesai';
+      case 'processing':
+        return 'Proses';
+      case 'failed':
+        return 'Gagal Kirim';
+      default:
+        return 'Diterima';
+    }
+  }
 
   /// Membaca satu laporan dari JSON backend. Kontrak lengkap di API_INTEGRATION.md.
-  /// `status`: "received" (diterima), "processing", "completed"/"verified" (selesai).
-  /// `habitat`: "atmosphere", "hydrosphere", "lithosphere" atau kosong (lapangan).
+  /// `status`: "received" (diterima), "processing" (proses), "completed"/"verified" (selesai).
   factory FieldReportItemModel.fromJson(Map<String, dynamic> json) {
     final habitat = (json['habitat'] as String? ?? '').toLowerCase();
     final status = (json['status'] as String? ?? 'received').toLowerCase();
@@ -355,7 +397,7 @@ final class FieldReportItemModel {
       timeAndHabitat: '${_formatReportTime(created)} • $habitatLabel',
       metricSummary: json['metric_summary'] as String? ??
           (description.isEmpty ? 'Dokumentasi visual terlampir' : _ellipsize(description)),
-      statusLabel: completed ? 'Selesai' : 'Diterima',
+      statusLabel: _mapStatusLabel(status),
       isCompleted: completed,
       iconAsset: icon,
       accentBarColor: accent,
@@ -363,6 +405,7 @@ final class FieldReportItemModel {
       gpsCoordinates: (lat != null && lng != null)
           ? '${lat.toStringAsFixed(4)}, ${lng.toStringAsFixed(4)}'
           : null,
+      fullDescription: description.isNotEmpty ? description : null,
     );
   }
 
@@ -386,6 +429,7 @@ final class FieldReportItemModel {
       categoryLabel: draft.category,
       gpsCoordinates:
           '${draft.latitude.toStringAsFixed(4)}, ${draft.longitude.toStringAsFixed(4)}',
+      fullDescription: draft.description.trim(),
     );
   }
 
@@ -396,6 +440,9 @@ final class FieldReportItemModel {
     String? statusLabel,
     bool? isCompleted,
     Uint8List? capturedPhotoBytes,
+    bool? isFailed,
+    bool? isSyncing,
+    FieldReportDraft? pendingDraft,
   }) {
     return FieldReportItemModel(
       id: id ?? this.id,
@@ -409,6 +456,10 @@ final class FieldReportItemModel {
       capturedPhotoBytes: capturedPhotoBytes ?? this.capturedPhotoBytes,
       categoryLabel: categoryLabel,
       gpsCoordinates: gpsCoordinates,
+      fullDescription: fullDescription,
+      isFailed: isFailed ?? this.isFailed,
+      isSyncing: isSyncing ?? this.isSyncing,
+      pendingDraft: pendingDraft ?? this.pendingDraft,
     );
   }
 

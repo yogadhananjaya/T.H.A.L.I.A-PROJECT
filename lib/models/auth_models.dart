@@ -70,10 +70,10 @@ final class RegisterFormModel extends AuthFormModel {
     this.email = '',
     this.password = '',
     this.confirmPassword = '',
-    this.detectedLocation = 'Cikarang Utara, Bekasi',
+    this.detectedLocation = '',
     this.profileImageBytes,
     this.profileImageName,
-    this.agreedToTerms = true,
+    this.agreedToTerms = false,
     this.obscurePassword = true,
     this.obscureConfirmPassword = true,
   });

@@ -89,6 +89,15 @@ class _HomeTabScreenState extends State<HomeTabScreen>
     );
   }
 
+  String _currentMonthYearLabel() {
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    ];
+    final now = DateTime.now();
+    return '${months[now.month - 1]} ${now.year}';
+  }
+
   @override
   Widget build(BuildContext context) {
     final ctrl = widget.controller;
@@ -97,11 +106,15 @@ class _HomeTabScreenState extends State<HomeTabScreen>
     final useSunCard =
         climate.isOrange || forecast.triggersDryOrangePreview;
 
-    return SingleChildScrollView(
-      physics: const BouncingScrollPhysics(),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
+    return RefreshIndicator(
+      onRefresh: ctrl.refresh,
+      child: SingleChildScrollView(
+        physics: const AlwaysScrollableScrollPhysics(
+          parent: BouncingScrollPhysics(),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
           // 1. Header Geometry Atas dengan Animasi Idle Kubah & Tetesan Air (Screenshot 2)
           SizedBox(
             width: double.infinity,
@@ -203,6 +216,79 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                   ),
                 ),
                 const SizedBox(height: 12),
+
+                // Indikator status pemuatan, galat server, atau mode data contoh (B04)
+                if (ctrl.isLoading)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 10),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: const LinearProgressIndicator(minHeight: 3),
+                    ),
+                  ),
+                if (ctrl.loadError != null || ctrl.isSampleData)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: ctrl.loadError != null
+                            ? const Color(0xFFFFEFEA)
+                            : climate.pillFill,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: ctrl.loadError != null
+                              ? const Color(0xFFE07A5F)
+                              : climate.border,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            ctrl.loadError != null
+                                ? Icons.cloud_off_rounded
+                                : Icons.info_outline_rounded,
+                            size: 16,
+                            color: ctrl.loadError != null
+                                ? const Color(0xFFB33A22)
+                                : climate.primaryBrand,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              ctrl.loadError ??
+                                  'Menampilkan data contoh (mode simulasi lokal).',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: ctrl.loadError != null
+                                    ? const Color(0xFF8C2714)
+                                    : climate.textSecondary,
+                              ),
+                            ),
+                          ),
+                          TextButton(
+                            onPressed: ctrl.isLoading ? null : ctrl.refresh,
+                            style: TextButton.styleFrom(
+                              padding: const EdgeInsets.symmetric(horizontal: 8),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                            ),
+                            child: const Text(
+                              'Muat Ulang',
+                              style: TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
 
                 // 3. Hero Suhu & Kartu Icon Cuaca
                 StaggeredEntrance(
@@ -338,7 +424,7 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                             title: 'Atmosfer',
                             value: forecast.humidityText,
                             description:
-                                'Pemantauan kelembapan udara mikro & intensitas curah hujan dari sensor BME280.',
+                                'Pemantauan suhu & kelembapan udara mikro serta tekanan atmosfer (${forecast.conditionSubtitle}).',
                           ),
                         ),
                       ),
@@ -354,7 +440,7 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                             title: 'Hidrosfer',
                             value: forecast.waterLevelText,
                             description:
-                                'Pemantauan kondisi aliran air & kualitas pH air permukaan secara real-time.',
+                                'Pemantauan tinggi muka air & intensitas hujan permukaan secara real-time (${forecast.waterLevelText}).',
                           ),
                         ),
                       ),
@@ -370,7 +456,7 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                             title: 'Litosfer',
                             value: forecast.soilText,
                             description:
-                                'Pemantauan kejenuhan air dalam tanah & stabilitas lereng terhadap risiko longsor.',
+                                'Pemantauan kejenuhan air dalam tanah & stabilitas lereng terhadap risiko longsor (${forecast.soilText}).',
                           ),
                         ),
                       ),
@@ -379,7 +465,7 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                 ),
                 const SizedBox(height: 20),
 
-                // 5. Header Prakiraan Cuaca 5 Hari + Mei 2026
+                // 5. Header Prakiraan Cuaca dinamis + Bulan/Tahun Sistem (B26, B28)
                 StaggeredEntrance(
                   delayMs: 135,
                   child: Row(
@@ -387,7 +473,7 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                     children: [
                       Expanded(
                         child: Text(
-                          'Prakiraan Cuaca 5 Hari',
+                          'Prakiraan Cuaca ${ctrl.forecastDays.length} Hari',
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 15.5,
@@ -401,7 +487,7 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                       GestureDetector(
                         onTap: () => ctrl.selectTab(DashboardTab.calendar),
                         child: Text(
-                          'Mei 2026',
+                          _currentMonthYearLabel(),
                           style: TextStyle(
                             fontSize: 13,
                             fontWeight: FontWeight.w800,
@@ -414,36 +500,63 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                 ),
                 const SizedBox(height: 12),
 
-                // 6. Baris 5 Kapsul Vertikal Prakiraan Cuaca Interaktif
+                // 6. Baris Kapsul Vertikal Prakiraan Cuaca Interaktif (scroll bila > 5 hari, B28)
                 StaggeredEntrance(
                   delayMs: 170,
-                  child: Row(
-                    children: List.generate(ctrl.forecastDays.length, (index) {
-                      final day = ctrl.forecastDays[index];
-                      final isSelected = ctrl.selectedForecastIndex == index;
-                      return Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(
-                            right: index == ctrl.forecastDays.length - 1
-                                ? 0
-                                : 8,
-                          ),
-                          child: _ForecastDayCapsule(
-                            day: day,
-                            isSelected: isSelected,
-                            climate: climate,
-                            onTap: () => ctrl.selectForecastDay(index),
+                  child: ctrl.forecastDays.length <= 5
+                      ? Row(
+                          children: List.generate(ctrl.forecastDays.length, (index) {
+                            final day = ctrl.forecastDays[index];
+                            final isSelected = ctrl.selectedForecastIndex == index;
+                            return Expanded(
+                              child: Padding(
+                                padding: EdgeInsets.only(
+                                  right: index == ctrl.forecastDays.length - 1
+                                      ? 0
+                                      : 8,
+                                ),
+                                child: _ForecastDayCapsule(
+                                  day: day,
+                                  isSelected: isSelected,
+                                  climate: climate,
+                                  onTap: () => ctrl.selectForecastDay(index),
+                                ),
+                              ),
+                            );
+                          }),
+                        )
+                      : SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: List.generate(ctrl.forecastDays.length, (index) {
+                              final day = ctrl.forecastDays[index];
+                              final isSelected = ctrl.selectedForecastIndex == index;
+                              return SizedBox(
+                                width: 68,
+                                child: Padding(
+                                  padding: EdgeInsets.only(
+                                    right: index == ctrl.forecastDays.length - 1
+                                        ? 0
+                                        : 8,
+                                  ),
+                                  child: _ForecastDayCapsule(
+                                    day: day,
+                                    isSelected: isSelected,
+                                    climate: climate,
+                                    onTap: () => ctrl.selectForecastDay(index),
+                                  ),
+                                ),
+                              );
+                            }),
                           ),
                         ),
-                      );
-                    }),
-                  ),
                 ),
               ],
             ),
           ),
         ],
       ),
+    ),
     );
   }
 }

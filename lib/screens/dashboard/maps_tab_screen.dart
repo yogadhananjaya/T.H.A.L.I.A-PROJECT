@@ -95,10 +95,10 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                     child: Stack(
                       alignment: Alignment.center,
                       children: [
-                        // Kartografi Google Maps (jalan tol kuning, jalan putih, taman hijau, sungai)
+                        // Kartografi latar saat tile belum dimuat (B36).
                         Positioned.fill(
                           child: CustomPaint(
-                            painter: GoogleMapsCartographyPainter(
+                            painter: CartographyGridPainter(
                               isDark: climate.isDark,
                               centerLat: gps.latitude,
                               centerLng: gps.longitude,
@@ -106,7 +106,7 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                           ),
                         ),
 
-                        // Live Google Maps Tile Layer
+                        // Live OpenStreetMap Tile Layer (B36)
                         Positioned.fill(
                           child: FlutterMap(
                             mapController: _mapController,
@@ -119,6 +119,8 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                               ),
                               initialZoom: 15.8,
                               onTap: (_, point) {
+                                // Geser peta ke titik yang diketuk agar pin di tengah tetap sinkron (B18).
+                                _mapController.move(point, _mapController.camera.zoom);
                                 widget.authController.updatePickedMapPoint(
                                   point.latitude,
                                   point.longitude,
@@ -130,7 +132,7 @@ class _MapsTabScreenState extends State<MapsTabScreen> {
                                 tileProvider: _tileProvider,
                                 urlTemplate:
                                     'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                                userAgentPackageName: 'com.thalia.ui_presu',
+                                userAgentPackageName: 'com.thalia.app',
                               ),
                             ],
                           ),

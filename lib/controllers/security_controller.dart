@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../models/api_models.dart';
+import '../utils/validators.dart';
 import 'auth_controller.dart';
 
 /// Penilaian kekuatan kata sandi untuk indikator 4 segmen di layar Keamanan & Kata Sandi.
@@ -51,8 +52,8 @@ final class SecurityController extends ChangeNotifier {
 
   final AuthController _auth;
 
-  /// Samakan dengan validasi di backend.
-  static const int minPasswordLength = 8;
+  /// Seragam dengan validasi daftar & backend (B25).
+  static const int minPasswordLength = ThaliaValidators.minPasswordLength;
 
   String _currentPassword = '';
   String _newPassword = '';
@@ -139,10 +140,12 @@ final class SecurityController extends ChangeNotifier {
     if (_currentPassword.isEmpty) {
       return 'Isi kata sandi saat ini.';
     }
-    final hasLetter = RegExp(r'[A-Za-z]').hasMatch(_newPassword);
-    final hasDigit = RegExp(r'\d').hasMatch(_newPassword);
-    if (_newPassword.length < minPasswordLength || !hasLetter || !hasDigit) {
-      return 'Kata sandi baru minimal $minPasswordLength karakter, kombinasi huruf dan angka.';
+    final passErr = ThaliaValidators.validatePassword(
+      _newPassword,
+      label: 'Kata sandi baru',
+    );
+    if (passErr != null) {
+      return passErr;
     }
     if (_newPassword == _currentPassword) {
       return 'Kata sandi baru harus berbeda dari yang lama.';

@@ -21,13 +21,136 @@ class ProfileScreen extends StatelessWidget {
   final AuthController authController;
   final ClimatePalette climate;
 
+  Future<void> _openEditProfileSheet(
+    BuildContext context, {
+    required String currentName,
+    required String currentHandle,
+    required String currentPhone,
+  }) async {
+    final nameCtrl = TextEditingController(text: currentName);
+    final handleCtrl = TextEditingController(text: currentHandle);
+    final phoneCtrl = TextEditingController(text: currentPhone == '-' ? '' : currentPhone);
+    String? errorMsg;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: climate.cardFill,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                22,
+                18,
+                22,
+                22 + MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Edit Profil',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: climate.primaryDark,
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  TextField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Lengkap',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: handleCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nama Pengguna (Handle)',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: phoneCtrl,
+                    keyboardType: TextInputType.phone,
+                    decoration: const InputDecoration(
+                      labelText: 'Nomor Telepon',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                  if (errorMsg != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      errorMsg!,
+                      style: const TextStyle(
+                        color: Color(0xFFB33A22),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 14),
+                  SizedBox(
+                    width: double.infinity,
+                    child: FilledButton(
+                      onPressed: () async {
+                        if (nameCtrl.text.trim().isEmpty) {
+                          setModalState(() => errorMsg = 'Nama lengkap wajib diisi.');
+                          return;
+                        }
+                        try {
+                          await authController.updateActiveProfile(
+                            fullName: nameCtrl.text.trim(),
+                            handle: handleCtrl.text.trim(),
+                            phone: phoneCtrl.text.trim().isEmpty
+                                ? '-'
+                                : phoneCtrl.text.trim(),
+                          );
+                          if (ctx.mounted) Navigator.of(ctx).pop();
+                        } catch (_) {
+                          setModalState(() => errorMsg = 'Gagal menyimpan perubahan profil.');
+                        }
+                      },
+                      child: const Text('Simpan Perubahan'),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    nameCtrl.dispose();
+    handleCtrl.dispose();
+    phoneCtrl.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
-    final reg = authController.registerModel;
-    final displayName =
-        reg.fullName.trim().isNotEmpty ? reg.fullName : 'Raka Pratama';
-    final displayEmail =
-        reg.email.trim().isNotEmpty ? reg.email : 'raka.pratama@thalia.id';
+    final session = authController.activeSession;
+    final photoBytes =
+        authController.profilePhotoBytes ?? authController.registerModel.profileImageBytes;
+    final displayName = (session?.userName ?? '').trim().isNotEmpty
+        ? session!.userName!
+        : 'Petugas T.H.A.L.I.A';
+    final displayEmail = (session?.email ?? '').trim().isNotEmpty
+        ? session!.email!
+        : 'petugas@thalia.id';
+    final displayHandle = (session?.handle ?? '').trim().isNotEmpty
+        ? session!.handle!
+        : '@petugas_thalia';
+    final displayPhone = (session?.phone ?? '').trim().isNotEmpty
+        ? session!.phone!
+        : '-';
     final displayLocation = authController.gpsModel.resolvedAddress;
 
     return SingleChildScrollView(
@@ -77,9 +200,10 @@ class ProfileScreen extends StatelessWidget {
                                   ),
                                 ),
                                 clipBehavior: Clip.antiAlias,
-                                child: reg.profileImageBytes != null
+                                child: photoBytes != null
                                     ? Image.memory(
-                                        reg.profileImageBytes!,
+                                        photoBytes,
+                                        cacheWidth: 180,
                                         fit: BoxFit.cover,
                                       )
                                     : Icon(
@@ -137,7 +261,12 @@ class ProfileScreen extends StatelessWidget {
                             ),
                             const SizedBox(height: 10),
                             TactilePressable(
-                              onTap: authController.pickProfilePhotoFromGallery,
+                              onTap: () => _openEditProfileSheet(
+                                context,
+                                currentName: displayName,
+                                currentHandle: displayHandle,
+                                currentPhone: displayPhone,
+                              ),
                               child: Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 18,
@@ -184,7 +313,7 @@ class ProfileScreen extends StatelessWidget {
                     children: [
                       _ProfileInfoRow(
                         label: 'Nama Pengguna',
-                        value: '@rakapratama',
+                        value: displayHandle,
                         climate: climate,
                       ),
                       Padding(
@@ -193,7 +322,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       _ProfileInfoRow(
                         label: 'Nomor Telepon',
-                        value: '+62 812-3456-7890',
+                        value: displayPhone,
                         climate: climate,
                       ),
                       Padding(

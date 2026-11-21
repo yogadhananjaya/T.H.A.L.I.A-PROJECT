@@ -20,12 +20,18 @@ final class ApiConfig {
   static const String baseUrl =
       String.fromEnvironment('THALIA_API_URL', defaultValue: 'http://10.0.2.2:8000');
 
-  /// Batas waktu tunggu satu permintaan ke server.
+  /// Batas waktu tunggu satu permintaan standar ke server.
   static const Duration requestTimeout = Duration(seconds: 8);
 
-  // --- Jalur endpoint (ubah di sini bila backend memakai nama lain) ---
+  /// Batas waktu tunggu unggah foto laporan di jaringan lambat (B31).
+  static const Duration uploadTimeout = Duration(seconds: 25);
+
+  // --- Jalur endpoint (selaras dengan backend FastAPI, B06) ---
   static const String loginPath = '/api/v1/auth/login';
+  static const String registerPath = '/api/v1/auth/register';
   static const String changePasswordPath = '/api/v1/auth/change-password';
+  static const String forgotPasswordPath = '/api/v1/auth/forgot-password';
+  static const String profilePath = '/api/v1/auth/me';
   static const String forecastPath = '/api/v1/forecast';
   static const String reportsPath = '/api/v1/reports';
 }

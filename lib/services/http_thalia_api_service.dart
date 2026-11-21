@@ -4,7 +4,7 @@ import '../models/dashboard_models.dart';
 import 'api_client.dart';
 import 'thalia_api_service.dart';
 
-/// Login ke backend FastAPI. Kontrak JSON ada di API_INTEGRATION.md.
+/// Layanan autentikasi terhadap backend FastAPI.
 final class HttpAuthService implements AuthService {
   HttpAuthService(this._client);
 
@@ -21,6 +21,34 @@ final class HttpAuthService implements AuthService {
     );
     if (data is! Map<String, dynamic>) {
       throw const ApiException('Jawaban login dari server tidak dikenali.');
+    }
+    final session = AuthSession.fromJson(data);
+    _client.accessToken = session.accessToken;
+    return session;
+  }
+
+  @override
+  Future<AuthSession> register({
+    required String fullName,
+    required String email,
+    required String password,
+    String locationName = '',
+    double? latitude,
+    double? longitude,
+  }) async {
+    final data = await _client.post(
+      ApiConfig.registerPath,
+      body: {
+        'full_name': fullName.trim(),
+        'email': email.trim(),
+        'password': password,
+        'location_name': locationName.trim(),
+        'latitude': ?latitude,
+        'longitude': ?longitude,
+      },
+    );
+    if (data is! Map<String, dynamic>) {
+      throw const ApiException('Jawaban pendaftaran dari server tidak dikenali.');
     }
     final session = AuthSession.fromJson(data);
     _client.accessToken = session.accessToken;
@@ -45,6 +73,56 @@ final class HttpAuthService implements AuthService {
       },
     );
   }
+
+  @override
+  Future<String> forgotPassword({required String email}) async {
+    final data = await _client.post(
+      ApiConfig.forgotPasswordPath,
+      body: {'email': email.trim()},
+    );
+    if (data is Map<String, dynamic> && data['message'] is String) {
+      return data['message'] as String;
+    }
+    return 'Permintaan reset kata sandi telah dikirim.';
+  }
+
+  @override
+  Future<AuthSession> updateProfile({
+    String? fullName,
+    String? phone,
+    String? handle,
+    String? locationName,
+    double? latitude,
+    double? longitude,
+    int? radiusKm,
+  }) async {
+    final data = await _client.put(
+      ApiConfig.profilePath,
+      body: {
+        'full_name': ?fullName,
+        'phone': ?phone,
+        'handle': ?handle,
+        'location_name': ?locationName,
+        'latitude': ?latitude,
+        'longitude': ?longitude,
+        'radius_km': ?radiusKm,
+      },
+    );
+    if (data is! Map<String, dynamic>) {
+      throw const ApiException('Jawaban pembaruan profil tidak dikenali.');
+    }
+    return AuthSession(
+      accessToken: _client.accessToken ?? '',
+      userName: data['user_name'] as String?,
+      email: data['email'] as String?,
+      phone: data['phone'] as String?,
+      handle: data['handle'] as String?,
+      locationName: data['location_name'] as String?,
+      latitude: (data['latitude'] as num?)?.toDouble(),
+      longitude: (data['longitude'] as num?)?.toDouble(),
+      radiusKm: (data['radius_km'] as num?)?.toInt(),
+    );
+  }
 }
 
 /// Data dashboard dari backend FastAPI (yang menerima data ESP32, membandingkan
@@ -58,12 +136,14 @@ final class HttpThaliaApiService implements ThaliaApiService {
   Future<List<ForecastDayModel>> fetchForecast({
     required double latitude,
     required double longitude,
+    int radiusKm = 5,
   }) async {
     final data = await _client.get(
       ApiConfig.forecastPath,
       query: {
         'lat': latitude.toStringAsFixed(6),
         'lng': longitude.toStringAsFixed(6),
+        'radius_km': '$radiusKm',
         'days': '5',
       },
     );
@@ -82,7 +162,23 @@ final class HttpThaliaApiService implements ThaliaApiService {
 
   @override
   Future<FieldReportItemModel> submitReport(FieldReportDraft draft) async {
-    final data = await _client.post(ApiConfig.reportsPath, body: draft.toJson());
+    final dynamic data;
+    if (draft.photoBytes != null && draft.photoBytes!.isNotEmpty) {
+      data = await _client.postMultipart(
+        ApiConfig.reportsPath,
+        fields: {
+          'category': draft.category,
+          'description': draft.description,
+          'latitude': draft.latitude.toString(),
+          'longitude': draft.longitude.toString(),
+          'location_name': draft.locationName,
+          'captured_at': draft.capturedAt.toUtc().toIso8601String(),
+        },
+        fileBytes: draft.photoBytes,
+      );
+    } else {
+      data = await _client.post(ApiConfig.reportsPath, body: draft.toJson());
+    }
     if (data is! Map<String, dynamic>) {
       throw const ApiException('Jawaban kirim laporan dari server tidak dikenali.');
     }

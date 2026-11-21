@@ -63,8 +63,9 @@ class LocationSearchScreen extends StatefulWidget {
 }
 
 class _LocationSearchScreenState extends State<LocationSearchScreen> {
+  /// Tile OpenStreetMap gratis tanpa Google Maps API key (B36).
   static const String _tileUrl =
-      'https://mt1.google.com/vt/lyrs=m&hl=id&x={x}&y={y}&z={z}';
+      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
   static const double _zoom = 16;
 
   final MapController _map = MapController();
@@ -286,7 +287,7 @@ class _LocationSearchScreenState extends State<LocationSearchScreen> {
                     TileLayer(
                       tileProvider: _tileProvider,
                       urlTemplate: _tileUrl,
-                      userAgentPackageName: 'com.thalia.ui_presu',
+                      userAgentPackageName: 'com.thalia.app',
                     ),
                   ],
                 ),

@@ -19,6 +19,123 @@ class LocationAccessScreen extends StatelessWidget {
   final AuthController controller;
   final ThaliaPalette palette;
 
+  Future<void> _openManualSearchSheet(BuildContext context) async {
+    var results = AuthController.defaultIndonesianPlaces;
+    var searching = false;
+    final queryCtrl = TextEditingController();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: palette.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                20,
+                16,
+                20,
+                20 + MediaQuery.of(ctx).viewInsets.bottom,
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Pilih Daerah Secara Manual',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: palette.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  TextField(
+                    controller: queryCtrl,
+                    decoration: InputDecoration(
+                      hintText: 'Cari kecamatan atau kota (mis. Cikarang)...',
+                      prefixIcon: const Icon(Icons.search_rounded),
+                      filled: true,
+                      fillColor: palette.loginInputFill,
+                      border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(14),
+                        borderSide: BorderSide.none,
+                      ),
+                    ),
+                    onSubmitted: (q) async {
+                      setModalState(() => searching = true);
+                      final found = await controller.searchPlaces(q);
+                      if (ctx.mounted) {
+                        setModalState(() {
+                          results = found;
+                          searching = false;
+                        });
+                      }
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  if (searching)
+                    const Center(
+                      child: Padding(
+                        padding: EdgeInsets.all(16),
+                        child: CircularProgressIndicator(),
+                      ),
+                    )
+                  else if (results.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 18),
+                      child: Center(
+                        child: Text(
+                          'Lokasi tidak ditemukan. Coba kata kunci lain.',
+                          style: TextStyle(color: palette.textSecondary),
+                        ),
+                      ),
+                    )
+                  else
+                    ConstrainedBox(
+                      constraints: const BoxConstraints(maxHeight: 260),
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        itemCount: results.length,
+                        separatorBuilder: (_, _) => const Divider(height: 1),
+                        itemBuilder: (_, i) {
+                          final place = results[i];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            leading: const Icon(Icons.location_on_outlined),
+                            title: Text(
+                              place.name,
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: palette.textPrimary,
+                              ),
+                            ),
+                            subtitle: Text(
+                              place.subtitle,
+                              style: TextStyle(color: palette.textSecondary),
+                            ),
+                            onTap: () {
+                              controller.selectPlaceResult(place);
+                              Navigator.of(ctx).pop();
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+    queryCtrl.dispose();
+  }
+
   @override
   Widget build(BuildContext context) {
     final gps = controller.gpsModel;
@@ -132,19 +249,65 @@ class LocationAccessScreen extends StatelessWidget {
                           onToggle: controller.toggleGpsAutomatic,
                         ),
                       ),
+                      if (controller.locationError != null) ...[
+                        const SizedBox(height: 12),
+                        Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEFEA),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFE07A5F)),
+                          ),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.location_off_rounded,
+                                size: 17,
+                                color: Color(0xFFB33A22),
+                              ),
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Text(
+                                  controller.locationError!,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w600,
+                                    color: Color(0xFF8C2714),
+                                  ),
+                                ),
+                              ),
+                              if (controller.locationPermissionDeniedForever)
+                                TextButton(
+                                  onPressed: controller.openLocationAppSettings,
+                                  child: const Text(
+                                    'Pengaturan',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w800,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: 14),
                       StaggeredEntrance(
                         delayMs: 210,
                         child: PrimaryAuthButton(
                           label: 'Simpan Lokasi',
                           palette: palette,
-                          onTap: controller.saveDetectedLocation,
+                          onTap: () => controller.saveDetectedLocation(),
                         ),
                       ),
                       const SizedBox(height: 18),
                       Center(
                         child: TactilePressable(
-                          onTap: controller.saveDetectedLocation,
+                          onTap: () => _openManualSearchSheet(context),
                           child: Text(
                             'Pilih Daerah Secara Manual',
                             style: TextStyle(

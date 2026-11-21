@@ -1,16 +1,17 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:permission_handler/permission_handler.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/api_models.dart';
 import '../models/auth_models.dart';
 import '../services/mock_thalia_api_service.dart';
 import '../services/thalia_api_service.dart';
+import '../utils/validators.dart';
 
-/// Hasil pencarian lokasi Google Maps / Geocoding.
+/// Hasil pencarian lokasi & Geocoding.
 final class PlaceSearchResult {
   const PlaceSearchResult({
     required this.name,
@@ -42,6 +43,83 @@ final class AuthController extends ChangeNotifier {
   final AuthService _authService;
 
   static const String _welcomeSeenKey = 'has_seen_welcome';
+  static const String _themeOptionKey = 'thalia_theme_option';
+  static const String _followSystemThemeKey = 'thalia_follow_system_theme';
+  static const String _savedSessionKey = 'thalia_saved_session';
+
+  AuthSession? _activeSession;
+  AuthSession? get activeSession => _activeSession;
+
+  Uint8List? _profilePhotoBytes;
+  Uint8List? get profilePhotoBytes => _profilePhotoBytes;
+
+  int _reverseGeocodeSeq = 0;
+  DateTime? _lastNominatimCall;
+  String? _locationError;
+  String? get locationError => _locationError;
+  bool _locationPermissionDeniedForever = false;
+  bool get locationPermissionDeniedForever => _locationPermissionDeniedForever;
+
+  /// Memuat tema dan sesi tersimpan dari SharedPreferences (B21, B22).
+  static Future<({bool hasSeenWelcome, ThemeOption theme, bool followSystem, AuthSession? session})>
+      loadInitialPrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final seen = prefs.getBool(_welcomeSeenKey) ?? false;
+      final themeName = prefs.getString(_themeOptionKey);
+      final theme = themeName == 'dark' ? ThemeOption.dark : ThemeOption.light;
+      final follow = prefs.getBool(_followSystemThemeKey) ?? false;
+      AuthSession? session;
+      final rawSession = prefs.getString(_savedSessionKey);
+      if (rawSession != null && rawSession.isNotEmpty) {
+        final decoded = jsonDecode(rawSession);
+        if (decoded is Map<String, dynamic>) {
+          session = AuthSession.fromJson(decoded);
+        }
+      }
+      return (hasSeenWelcome: seen, theme: theme, followSystem: follow, session: session);
+    } catch (_) {
+      return (
+        hasSeenWelcome: false,
+        theme: ThemeOption.light,
+        followSystem: false,
+        session: null,
+      );
+    }
+  }
+
+  void applyInitialPrefs({
+    required ThemeOption theme,
+    required bool followSystem,
+    AuthSession? session,
+  }) {
+    _themeOption = theme;
+    _followSystemTheme = followSystem;
+    if (session != null) {
+      _activeSession = session;
+      if ((session.locationName ?? '').isNotEmpty &&
+          session.latitude != null &&
+          session.longitude != null) {
+        _gpsModel = _gpsModel.copyWith(
+          resolvedAddress: session.locationName,
+          latitude: session.latitude,
+          longitude: session.longitude,
+        );
+      }
+      _currentStep = AuthScreenStep.dashboard;
+    }
+    notifyListeners();
+  }
+
+  /// Dipanggil saat backend mengembalikan 401 Unauthorized (B35).
+  void handleUnauthorized() {
+    _activeSession = null;
+    _clearSavedSession();
+    _currentStep = AuthScreenStep.login;
+    _feedbackBanner = 'Sesi Anda telah berakhir. Silakan masuk kembali.';
+    _feedbackIsError = true;
+    notifyListeners();
+  }
 
   /// Dibaca sekali di main() sebelum runApp.
   static Future<bool> loadHasSeenWelcome() async {
@@ -164,12 +242,41 @@ final class AuthController extends ChangeNotifier {
   }
 
   // --- Fungsi Halaman Masuk Akun (Login) ---
+  void _clearFeedback() {
+    if (_feedbackBanner != null || _feedbackIsError) {
+      _feedbackBanner = null;
+      _feedbackIsError = false;
+    }
+  }
+
+  void _setErrorFeedback(String message) {
+    _feedbackBanner = message;
+    _feedbackIsError = true;
+    notifyListeners();
+  }
+
+  Future<void> _persistSession(AuthSession session) async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(_savedSessionKey, jsonEncode(session.toJson()));
+    } catch (_) {}
+  }
+
+  Future<void> _clearSavedSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_savedSessionKey);
+    } catch (_) {}
+  }
+
   void updateLoginEmail(String value) {
+    _clearFeedback();
     _loginModel = _loginModel.copyWith(emailOrOfficerId: value);
     notifyListeners();
   }
 
   void updateLoginPassword(String value) {
+    _clearFeedback();
     _loginModel = _loginModel.copyWith(password: value);
     notifyListeners();
   }
@@ -191,48 +298,42 @@ final class AuthController extends ChangeNotifier {
   Future<void> submitLogin() async {
     if (_isSubmitting) return;
 
-    final emailOrId = _loginModel.emailOrOfficerId.trim();
-    final password = _loginModel.password;
-
-    // 1. Validasi: Login tidak boleh kosong
-    if (emailOrId.isEmpty) {
-      _feedbackBanner = 'Email atau ID Petugas tidak boleh kosong.';
-      notifyListeners();
+    final idErr = ThaliaValidators.validateLoginIdentifier(_loginModel.emailOrOfficerId);
+    if (idErr != null) {
+      _setErrorFeedback(idErr);
       return;
     }
 
-    // 2. Validasi: Jika input berupa email, harus berakhiran @gmail.com
-    if (emailOrId.contains('@')) {
-      final emailLower = emailOrId.toLowerCase();
-      if (!RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$').hasMatch(emailLower)) {
-        _feedbackBanner = 'Email harus menggunakan domain @gmail.com (contoh: akun@gmail.com).';
-        notifyListeners();
-        return;
-      }
-    }
-
-    // 3. Validasi: Password tidak boleh kosong & minimal 5 karakter
-    if (password.isEmpty) {
-      _feedbackBanner = 'Kata sandi tidak boleh kosong.';
-      notifyListeners();
-      return;
-    }
-    if (password.length < 5) {
-      _feedbackBanner = 'Kata sandi minimal harus 5 karakter.';
-      notifyListeners();
+    final passErr = ThaliaValidators.validateLoginPassword(_loginModel.password);
+    if (passErr != null) {
+      _setErrorFeedback(passErr);
       return;
     }
 
     _isSubmitting = true;
-    _feedbackBanner = null;
-    _feedbackIsError = false;
+    _clearFeedback();
     notifyListeners();
 
     try {
-      await _authService.login(
+      final session = await _authService.login(
         username: _loginModel.emailOrOfficerId,
         password: _loginModel.password,
       );
+      _activeSession = session;
+      if ((session.locationName ?? '').isNotEmpty &&
+          session.latitude != null &&
+          session.longitude != null) {
+        _gpsModel = _gpsModel.copyWith(
+          resolvedAddress: session.locationName,
+          latitude: session.latitude,
+          longitude: session.longitude,
+        );
+      }
+      if (_loginModel.rememberDeviceSession) {
+        await _persistSession(session);
+      } else {
+        await _clearSavedSession();
+      }
       _currentStep = AuthScreenStep.dashboard;
     } on ApiException catch (e) {
       _feedbackBanner = e.message;
@@ -246,111 +347,143 @@ final class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Keluar akun: hapus sesi di layanan, kosongkan form login, kembali ke halaman Masuk.
+  /// Keluar akun: hapus sesi di layanan & perangkat, reset form & GPS (B08, B22).
   Future<void> logout() async {
     try {
       await _authService.logout();
     } catch (_) {}
+    await _clearSavedSession();
+    _activeSession = null;
+    _profilePhotoBytes = null;
     _loginModel = const LoginCredentialsModel();
+    _registerModel = const RegisterFormModel();
+    _gpsModel = const GpsLocationModel();
     navigateTo(AuthScreenStep.login);
+  }
+
+  /// Mengirim permintaan reset kata sandi melalui [AuthService] (B22).
+  Future<String> requestPasswordReset(String email) async {
+    final clean = email.trim();
+    if (clean.isEmpty || !clean.contains('@')) {
+      throw const ApiException('Masukkan alamat email yang valid.');
+    }
+    return _authService.forgotPassword(email: clean);
+  }
+
+  /// Memperbarui profil akun aktif melalui [AuthService] (B20).
+  Future<void> updateActiveProfile({
+    String? fullName,
+    String? phone,
+    String? handle,
+    String? locationName,
+    double? latitude,
+    double? longitude,
+    int? radiusKm,
+  }) async {
+    final updated = await _authService.updateProfile(
+      fullName: fullName,
+      phone: phone,
+      handle: handle,
+      locationName: locationName,
+      latitude: latitude,
+      longitude: longitude,
+      radiusKm: radiusKm,
+    );
+    _activeSession = updated;
+    if (_loginModel.rememberDeviceSession) {
+      await _persistSession(updated);
+    }
+    notifyListeners();
   }
 
   // --- Fungsi Halaman Daftar Akun Baru (Register) ---
   Future<bool> submitRegister() async {
     if (_isSubmitting) return false;
 
-    final name = _registerModel.fullName.trim();
-    final email = _registerModel.email.trim();
-    final password = _registerModel.password;
-    final confirm = _registerModel.confirmPassword;
-
-    // 1. Validasi: Nama lengkap tidak boleh kosong
-    if (name.isEmpty) {
-      _feedbackBanner = 'Nama lengkap tidak boleh kosong.';
-      notifyListeners();
+    final nameErr = ThaliaValidators.validateFullName(_registerModel.fullName);
+    if (nameErr != null) {
+      _setErrorFeedback(nameErr);
       return false;
     }
 
-    // 2. Validasi: Nama tidak boleh ada angka atau huruf/karakter unik
-    if (!RegExp(r'^[a-zA-Z\s]+$').hasMatch(name)) {
-      _feedbackBanner = 'Nama hanya boleh berupa huruf alfabet dan spasi (tanpa angka/karakter unik).';
-      notifyListeners();
+    final emailErr = ThaliaValidators.validateRegisterEmail(_registerModel.email);
+    if (emailErr != null) {
+      _setErrorFeedback(emailErr);
       return false;
     }
 
-    // 3. Validasi: Email tidak boleh kosong
-    if (email.isEmpty) {
-      _feedbackBanner = 'Alamat email tidak boleh kosong.';
-      notifyListeners();
+    final passErr = ThaliaValidators.validatePassword(_registerModel.password);
+    if (passErr != null) {
+      _setErrorFeedback(passErr);
       return false;
     }
 
-    // 4. Validasi: Email harus @gmail.com
-    final emailLower = email.toLowerCase();
-    if (!RegExp(r'^[a-zA-Z0-9._%+-]+@gmail\.com$').hasMatch(emailLower)) {
-      _feedbackBanner = 'Email harus menggunakan domain @gmail.com (contoh: user@gmail.com).';
-      notifyListeners();
+    final confirmErr = ThaliaValidators.validateConfirmPassword(
+      _registerModel.password,
+      _registerModel.confirmPassword,
+    );
+    if (confirmErr != null) {
+      _setErrorFeedback(confirmErr);
       return false;
     }
 
-    // 5. Validasi: Password tidak boleh kosong & minimal 5 karakter
-    if (password.isEmpty) {
-      _feedbackBanner = 'Kata sandi tidak boleh kosong.';
-      notifyListeners();
-      return false;
-    }
-    if (password.length < 5) {
-      _feedbackBanner = 'Kata sandi minimal harus 5 karakter.';
-      notifyListeners();
-      return false;
-    }
-
-    // 6. Validasi: Konfirmasi kata sandi harus diisi dan cocok
-    if (confirm.isEmpty) {
-      _feedbackBanner = 'Konfirmasi kata sandi tidak boleh kosong.';
-      notifyListeners();
-      return false;
-    }
-    if (password != confirm) {
-      _feedbackBanner = 'Konfirmasi kata sandi tidak cocok.';
-      notifyListeners();
-      return false;
-    }
-
-    // 7. Validasi: Harus menyetujui Syarat & Ketentuan
     if (!_registerModel.agreedToTerms) {
-      _feedbackBanner = 'Harap centang persetujuan Syarat & Ketentuan.';
-      notifyListeners();
+      _setErrorFeedback('Harap centang persetujuan Syarat & Ketentuan.');
       return false;
     }
 
     _isSubmitting = true;
-    _feedbackBanner = null;
+    _clearFeedback();
     notifyListeners();
 
-    await Future<void>.delayed(const Duration(milliseconds: 350));
-    _isSubmitting = false;
-    _currentStep = AuthScreenStep.login;
-    _feedbackBanner = 'Pendaftaran akun berhasil! Silakan masuk.';
-    notifyListeners();
-    return true;
+    try {
+      await _authService.register(
+        fullName: _registerModel.fullName.trim(),
+        email: _registerModel.email.trim(),
+        password: _registerModel.password,
+        locationName: _registerModel.detectedLocation,
+        latitude: _gpsModel.latitude,
+        longitude: _gpsModel.longitude,
+      );
+      _profilePhotoBytes = _registerModel.profileImageBytes;
+      _registerModel = const RegisterFormModel();
+      _currentStep = AuthScreenStep.login;
+      _feedbackBanner = 'Pendaftaran akun berhasil! Silakan masuk.';
+      _feedbackIsError = false;
+      return true;
+    } on ApiException catch (e) {
+      _feedbackBanner = e.message;
+      _feedbackIsError = true;
+      return false;
+    } catch (_) {
+      _feedbackBanner = 'Gagal mendaftar. Periksa koneksi Anda.';
+      _feedbackIsError = true;
+      return false;
+    } finally {
+      _isSubmitting = false;
+      notifyListeners();
+    }
   }
   void updateRegisterName(String value) {
+    _clearFeedback();
     _registerModel = _registerModel.copyWith(fullName: value);
     notifyListeners();
   }
 
   void updateRegisterEmail(String value) {
+    _clearFeedback();
     _registerModel = _registerModel.copyWith(email: value);
     notifyListeners();
   }
 
   void updateRegisterPassword(String value) {
+    _clearFeedback();
     _registerModel = _registerModel.copyWith(password: value);
     notifyListeners();
   }
 
   void updateRegisterConfirmPassword(String value) {
+    _clearFeedback();
     _registerModel = _registerModel.copyWith(confirmPassword: value);
     notifyListeners();
   }
@@ -369,11 +502,9 @@ final class AuthController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Meminta izin Galeri/Media Android terlebih dahulu lalu membuka Galeri / File Manager.
+  /// Membuka Photo Picker / Galeri tanpa izin storage usang (B38) dan cek batas 2 MB (B24).
   Future<void> pickProfilePhotoFromGallery() async {
     try {
-      await Permission.photos.request();
-      await Permission.storage.request();
       final picked = await _imagePicker.pickImage(
         source: ImageSource.gallery,
         maxWidth: 800,
@@ -385,6 +516,11 @@ final class AuthController extends ChangeNotifier {
         final temp = File(picked.path);
         if (await temp.exists()) await temp.delete();
       } catch (_) {}
+      if (bytes.length > ThaliaValidators.maxProfilePhotoBytes) {
+        _setErrorFeedback('Ukuran foto profil melebihi batas maksimal 2 MB.');
+        return;
+      }
+      _profilePhotoBytes = bytes;
       _registerModel = _registerModel.copyWith(
         profileImageBytes: bytes,
         profileImageName: picked.name,
@@ -410,9 +546,14 @@ final class AuthController extends ChangeNotifier {
     await requestAndDetectGpsLocation();
   }
 
-  /// Meminta izin lokasi native Android (Popup OS) & mendeteksi koordinat akurat.
+  /// Membuka pengaturan izin aplikasi saat izin lokasi ditolak permanen (B15).
+  Future<void> openLocationAppSettings() => Geolocator.openAppSettings();
+
+  /// Meminta izin lokasi native Android (satu jalur via Geolocator) & mendeteksi koordinat akurat (B14, B15).
   Future<void> requestAndDetectGpsLocation() async {
     if (_gpsModel.isScanning) return;
+    _locationError = null;
+    _locationPermissionDeniedForever = false;
     _gpsModel = _gpsModel.copyWith(
       isGpsEnabled: true,
       isScanning: true,
@@ -421,7 +562,6 @@ final class AuthController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      await Permission.locationWhenInUse.request();
       var permission = await Geolocator.checkPermission();
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -429,23 +569,28 @@ final class AuthController extends ChangeNotifier {
 
       if (permission == LocationPermission.denied ||
           permission == LocationPermission.deniedForever) {
+        _locationPermissionDeniedForever =
+            permission == LocationPermission.deniedForever;
+        _locationError = _locationPermissionDeniedForever
+            ? 'Izin lokasi ditolak permanen. Buka Pengaturan untuk mengaktifkannya.'
+            : 'Izin lokasi ditolak. Aktifkan izin lokasi untuk mendeteksi GPS.';
         _gpsModel = _gpsModel.copyWith(
           isGpsEnabled: false,
           isScanning: false,
           hasLocationPermission: false,
-          accuracyLabel: 'Akurat',
+          accuracyLabel: 'Izin ditolak',
         );
         notifyListeners();
         return;
       }
 
-      // Izin sudah ada tapi layanan lokasi HP mati: minta pengguna menyalakannya,
-      // toggle tetap mati sampai pengguna menyalakannya lagi setelah kembali.
       if (!await Geolocator.isLocationServiceEnabled()) {
+        _locationError = 'Layanan GPS perangkat mati. Nyalakan GPS lalu coba lagi.';
         _gpsModel = _gpsModel.copyWith(
           isGpsEnabled: false,
           isScanning: false,
-          accuracyLabel: 'Akurat',
+          hasLocationPermission: true,
+          accuracyLabel: 'GPS mati',
         );
         notifyListeners();
         await Geolocator.openLocationSettings();
@@ -462,14 +607,18 @@ final class AuthController extends ChangeNotifier {
       var lat = position.latitude;
       var lng = position.longitude;
 
-      final isEmulatorDefaultCalifornia =
-          (lat - 37.422).abs() < 0.08 && (lng - (-122.084)).abs() < 0.08;
-      if (isEmulatorDefaultCalifornia) {
-        lat = -6.2845;
-        lng = 107.1705;
+      // Hack koordinat default Mountain View emulator hanya aktif saat kDebugMode (B14).
+      if (kDebugMode) {
+        final isEmulatorDefaultCalifornia =
+            (lat - 37.422).abs() < 0.08 && (lng - (-122.084)).abs() < 0.08;
+        if (isEmulatorDefaultCalifornia) {
+          lat = -6.2845;
+          lng = 107.1705;
+        }
       }
 
       final address = await _reverseGeocode(lat, lng);
+      _locationError = null;
       _gpsModel = _gpsModel.copyWith(
         latitude: lat,
         longitude: lng,
@@ -481,21 +630,29 @@ final class AuthController extends ChangeNotifier {
       );
       _registerModel = _registerModel.copyWith(detectedLocation: address);
       notifyListeners();
-    } catch (_) {
+    } on TimeoutException {
+      _locationError =
+          'Gagal mengunci sinyal GPS dalam 6 detik. Coba di area terbuka atau pilih daerah secara manual.';
       _gpsModel = _gpsModel.copyWith(
         isScanning: false,
-        isGpsEnabled: true,
-        accuracyLabel: 'Akurat',
-        resolvedAddress: 'Cikarang Utara, Bekasi',
+        isGpsEnabled: false,
+        accuracyLabel: 'Timeout GPS',
       );
-      _registerModel = _registerModel.copyWith(
-        detectedLocation: _gpsModel.resolvedAddress,
+      notifyListeners();
+    } catch (_) {
+      _locationError =
+          'Tidak dapat membaca GPS perangkat. Pilih lokasi secara manual.';
+      _gpsModel = _gpsModel.copyWith(
+        isScanning: false,
+        isGpsEnabled: false,
+        accuracyLabel: 'Gagal deteksi',
       );
       notifyListeners();
     }
   }
 
-  /// Pencarian lokasi interaktif (API Geocoding + database lokal Indonesia).
+  /// Pencarian lokasi interaktif (Nominatim + database lokal Indonesia).
+  /// Mengembalikan list kosong bila tidak ditemukan — tanpa fallback Cikarang palsu (B16, B32).
   Future<List<PlaceSearchResult>> searchPlaces(String query) async {
     final q = query.trim();
     if (q.isEmpty) return defaultIndonesianPlaces;
@@ -505,15 +662,15 @@ final class AuthController extends ChangeNotifier {
           place.subtitle.toLowerCase().contains(q.toLowerCase());
     }).toList();
 
+    HttpClient? client;
     try {
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 3);
+      client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
       final encoded = Uri.encodeQueryComponent(q);
       final uri = Uri.parse(
         'https://nominatim.openstreetmap.org/search?format=jsonv2&q=$encoded&countrycodes=id&limit=6&accept-language=id',
       );
       final req = await client.getUrl(uri);
-      req.headers.set('User-Agent', 'ThaliaClimateApp/1.0');
+      req.headers.set('User-Agent', 'THALIA-App/1.0 (contact@thalia.id)');
       final res = await req.close();
       if (res.statusCode == 200) {
         final body = await res.transform(utf8.decoder).join();
@@ -544,20 +701,12 @@ final class AuthController extends ChangeNotifier {
           return [...remoteResults, ...localMatches];
         }
       }
-    } catch (_) {}
+    } catch (_) {
+    } finally {
+      client?.close(force: true);
+    }
 
-    if (localMatches.isNotEmpty) return localMatches;
-
-    // Jika mengetik nama daerah kustom saat emulator offline, tetap izinkan dipilih langsung
-    return [
-      PlaceSearchResult(
-        name: q,
-        subtitle: 'Titik Koordinat Wilayah Pantauan',
-        latitude: -6.2845,
-        longitude: 107.1705,
-      ),
-      ...defaultIndonesianPlaces,
-    ];
+    return localMatches;
   }
 
   /// Nama wilayah untuk sebuah titik peta tanpa mengubah lokasi aktif aplikasi.
@@ -596,6 +745,7 @@ final class AuthController extends ChangeNotifier {
   }
 
   Future<void> updatePickedMapPoint(double lat, double lng) async {
+    final seq = ++_reverseGeocodeSeq;
     _gpsModel = _gpsModel.copyWith(
       latitude: lat,
       longitude: lng,
@@ -604,7 +754,12 @@ final class AuthController extends ChangeNotifier {
     );
     notifyListeners();
 
-    final address = await _reverseGeocode(lat, lng);
+    final address = await _reverseGeocode(
+      lat,
+      lng,
+      fallback: 'Titik pilihan di peta',
+    );
+    if (seq != _reverseGeocodeSeq) return; // Abaikan balasan usang (B17).
     _gpsModel = _gpsModel.copyWith(resolvedAddress: address);
     _registerModel = _registerModel.copyWith(detectedLocation: address);
     notifyListeners();
@@ -615,14 +770,24 @@ final class AuthController extends ChangeNotifier {
     double lng, {
     String? fallback,
   }) async {
+    // Pembatas laju Nominatim maksimal 1 permintaan per detik (B17).
+    final last = _lastNominatimCall;
+    if (last != null) {
+      final elapsed = DateTime.now().difference(last);
+      if (elapsed < const Duration(seconds: 1)) {
+        await Future<void>.delayed(const Duration(seconds: 1) - elapsed);
+      }
+    }
+    _lastNominatimCall = DateTime.now();
+
+    HttpClient? client;
     try {
-      final client = HttpClient()
-        ..connectionTimeout = const Duration(seconds: 4);
+      client = HttpClient()..connectionTimeout = const Duration(seconds: 4);
       final uri = Uri.parse(
         'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=$lat&lon=$lng&accept-language=id',
       );
       final req = await client.getUrl(uri);
-      req.headers.set('User-Agent', 'ThaliaClimateApp/1.0');
+      req.headers.set('User-Agent', 'THALIA-App/1.0 (contact@thalia.id)');
       final res = await req.close();
       if (res.statusCode == 200) {
         final body = await res.transform(utf8.decoder).join();
@@ -644,25 +809,47 @@ final class AuthController extends ChangeNotifier {
           if (city != null) return city;
         }
       }
-    } catch (_) {}
-    return fallback ?? _gpsModel.resolvedAddress;
+    } catch (_) {
+    } finally {
+      client?.close(force: true);
+    }
+    return fallback ?? 'Titik pilihan di peta';
   }
 
-  void saveDetectedLocation() {
-    _registerModel = _registerModel.copyWith(
-      detectedLocation: _gpsModel.resolvedAddress,
-    );
+  bool saveDetectedLocation() {
+    final addr = _gpsModel.resolvedAddress.trim();
+    if (addr.isEmpty || (!_gpsModel.isGpsEnabled && _registerModel.detectedLocation.isEmpty)) {
+      _locationError = 'Aktifkan GPS atau pilih daerah secara manual terlebih dahulu.';
+      notifyListeners();
+      return false;
+    }
+    _locationError = null;
+    _registerModel = _registerModel.copyWith(detectedLocation: addr);
     navigateTo(AuthScreenStep.register);
+    return true;
   }
 
-  // --- Fungsi Halaman Pengaturan Tema ---
+  // --- Fungsi Halaman Pengaturan Tema (disimpan permanen, B21) ---
   void selectThemeOption(ThemeOption option) {
     _themeOption = option;
+    _saveThemePrefs();
     notifyListeners();
   }
 
   void toggleFollowSystemTheme(bool value) {
     _followSystemTheme = value;
+    _saveThemePrefs();
     notifyListeners();
+  }
+
+  Future<void> _saveThemePrefs() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _themeOptionKey,
+        _themeOption == ThemeOption.dark ? 'dark' : 'light',
+      );
+      await prefs.setBool(_followSystemThemeKey, _followSystemTheme);
+    } catch (_) {}
   }
 }

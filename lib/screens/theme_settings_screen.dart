@@ -182,7 +182,7 @@ class ThemeSettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  'Versi -- • Tri-Habitat Analysis',
+                  'Versi 1.0.0 (Build 1) • Tri-Habitat Analysis',
                   style: TextStyle(
                     fontSize: 12,
                     fontWeight: FontWeight.w700,

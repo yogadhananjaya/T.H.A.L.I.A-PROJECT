@@ -38,6 +38,8 @@ final class DashboardController extends ChangeNotifier {
   bool _isLoading = false;
   bool get isLoading => _isLoading;
 
+  int _loadGeneration = 0; // Token permintaan agar lokasi terbaru tidak terbuang (B11).
+
   String? _loadError;
 
   /// Pesan galat terakhir dari server, null bila pemuatan terakhir berhasil.
@@ -49,7 +51,12 @@ final class DashboardController extends ChangeNotifier {
   bool get isSampleData => _isSampleData;
 
   double _latitude = -6.2845;
+  double get latitude => _latitude;
   double _longitude = 107.1705;
+  double get longitude => _longitude;
+
+  Future<void> refresh() =>
+      loadDashboardData(latitude: _latitude, longitude: _longitude);
 
   // State Kamera & Pop-up Form Laporan Foto (Google Lens style)
   String _flashMode = 'Auto';
@@ -58,15 +65,31 @@ final class DashboardController extends ChangeNotifier {
   Uint8List? _capturedPhotoBytes;
   Uint8List? get capturedPhotoBytes => _capturedPhotoBytes;
 
+  DateTime? _photoCapturedAt;
+  DateTime? get photoCapturedAt => _photoCapturedAt;
+
+  String get formattedCaptureTime {
+    final t = (_photoCapturedAt ?? DateTime.now()).toLocal();
+    final hh = t.hour.toString().padLeft(2, '0');
+    final mm = t.minute.toString().padLeft(2, '0');
+    return '$hh:$mm WIB';
+  }
+
   bool _showLensReportSheet = false;
   bool get showLensReportSheet => _showLensReportSheet;
 
   String _selectedIncidentCategory = 'Banjir';
   String get selectedIncidentCategory => _selectedIncidentCategory;
 
-  String _reportDescription =
-      'Air sungai mulai meluap ke jalan utama RT 04 setinggi sekitar 35 cm setelah hujan deras. Arus cukup deras di area dekat jembatan.';
+  /// Deskripsi awal wajib kosong; pengguna harus mengetik sendiri (B09).
+  String _reportDescription = '';
   String get reportDescription => _reportDescription;
+
+  String? _reportFormError;
+  String? get reportFormError => _reportFormError;
+
+  String? _cameraError;
+  String? get cameraError => _cameraError;
 
   static const List<String> incidentCategories = [
     'Banjir',
@@ -80,13 +103,26 @@ final class DashboardController extends ChangeNotifier {
   ReportFilterTab _reportFilter = ReportFilterTab.all;
   ReportFilterTab get reportFilter => _reportFilter;
 
-  // State Kalender Mei 2026
-  int _selectedCalendarDay = 12;
+  // State Kalender dinamis berbasis DateTime.now() (B26)
+  DateTime _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
+  DateTime get calendarMonth => _calendarMonth;
+
+  int _selectedCalendarDay = DateTime.now().day;
   int get selectedCalendarDay => _selectedCalendarDay;
 
-  static const Set<int> rainyCalendarDays = {8, 12, 15, 20, 23};
+  Set<int> get rainyCalendarDays {
+    final now = DateTime.now();
+    if (_calendarMonth.year == now.year && _calendarMonth.month == now.month) {
+      return {
+        for (int i = 0; i < _forecastDays.length; i++)
+          if (_forecastDays[i].conditionTitle.toLowerCase().contains('hujan'))
+            now.add(Duration(days: i)).day,
+      };
+    }
+    return const {};
+  }
 
-  List<ForecastDayModel> _forecastDays = ForecastDayModel.samples;
+  List<ForecastDayModel> _forecastDays = ForecastDayModel.samplesForToday();
   List<ForecastDayModel> get forecastDays => _forecastDays;
 
   ForecastDayModel get currentForecast => _forecastDays[_selectedForecastIndex];
@@ -101,24 +137,50 @@ final class DashboardController extends ChangeNotifier {
       case ReportFilterTab.completed:
         return _reports.where((r) => r.isCompleted).toList();
       case ReportFilterTab.inProgress:
-        return _reports.where((r) => !r.isCompleted).toList();
+        return _reports.where((r) => !r.isCompleted && !r.isFailed).toList();
     }
   }
 
   int get totalReportsCount => _reports.length;
   int get completedReportsCount => _reports.where((r) => r.isCompleted).length;
   int get inProgressReportsCount =>
-      _reports.where((r) => !r.isCompleted).length;
+      _reports.where((r) => !r.isCompleted && !r.isFailed).length;
+
+  /// Reset seluruh state dashboard saat pengguna logout (B08).
+  void reset() {
+    _loadGeneration++;
+    _activeTab = DashboardTab.home;
+    _seasonMode = SeasonMode.rainyBlue;
+    _showingProfile = false;
+    _selectedForecastIndex = 0;
+    _monitoringRadiusKm = 5;
+    _isLoading = false;
+    _loadError = null;
+    _isSampleData = true;
+    _capturedPhotoBytes = null;
+    _photoCapturedAt = null;
+    _showLensReportSheet = false;
+    _selectedIncidentCategory = 'Banjir';
+    _reportDescription = '';
+    _reportFormError = null;
+    _cameraError = null;
+    _reportFilter = ReportFilterTab.all;
+    _calendarMonth = DateTime(DateTime.now().year, DateTime.now().month);
+    _selectedCalendarDay = DateTime.now().day;
+    _forecastDays = ForecastDayModel.samplesForToday();
+    _reports = List<FieldReportItemModel>.of(FieldReportItemModel.samples);
+    notifyListeners();
+  }
 
   // --- Pemuatan data dari API ---
 
-  /// Mengambil prakiraan dan riwayat laporan untuk koordinat tertentu.
-  /// Bila gagal, data yang sedang tampil dipertahankan dan [loadError] terisi.
+  /// Mengambil prakiraan dan riwayat laporan untuk koordinat & radius tertentu.
+  /// Menggunakan token generasi agar pemanggilan berurutan tidak membuang permintaan baru (B11, B13, B29).
   Future<void> loadDashboardData({
     required double latitude,
     required double longitude,
   }) async {
-    if (_isLoading) return;
+    final gen = ++_loadGeneration;
     _latitude = latitude;
     _longitude = longitude;
     _isLoading = true;
@@ -126,27 +188,37 @@ final class DashboardController extends ChangeNotifier {
     notifyListeners();
 
     try {
-      final forecast =
-          await _api.fetchForecast(latitude: latitude, longitude: longitude);
-      final reports = await _api.fetchReports();
+      final forecast = await _api.fetchForecast(
+        latitude: latitude,
+        longitude: longitude,
+        radiusKm: _monitoringRadiusKm,
+      );
+      final serverReports = await _api.fetchReports();
+
+      if (gen != _loadGeneration) return;
 
       if (forecast.isNotEmpty) {
         _forecastDays = forecast;
         if (_selectedForecastIndex >= forecast.length) _selectedForecastIndex = 0;
-        _seasonMode = currentForecast.triggersDryOrangePreview
-            ? SeasonMode.dryOrange
-            : SeasonMode.rainyBlue;
+        _isSampleData = false;
       }
-      _reports = List<FieldReportItemModel>.of(reports);
-      _isSampleData = false;
+
+      // Gabungkan laporan lokal yang masih Mengirim / Gagal Kirim agar tidak hilang (B13).
+      final pendingLocals =
+          _reports.where((r) => r.id.startsWith('LOCAL-') && (r.isSyncing || r.isFailed)).toList();
+      _reports = [...pendingLocals, ...serverReports];
     } on ApiException catch (e) {
+      if (gen != _loadGeneration) return;
       _loadError = e.message;
     } catch (_) {
+      if (gen != _loadGeneration) return;
       _loadError = 'Gagal memuat data. Coba lagi.';
     } finally {
-      _isLoading = false;
+      if (gen == _loadGeneration) {
+        _isLoading = false;
+        notifyListeners();
+      }
     }
-    notifyListeners();
   }
 
   // --- Navigasi Tab & Profil ---
@@ -170,9 +242,6 @@ final class DashboardController extends ChangeNotifier {
   void selectForecastDay(int index) {
     if (index < 0 || index >= _forecastDays.length) return;
     _selectedForecastIndex = index;
-    _seasonMode = _forecastDays[index].triggersDryOrangePreview
-        ? SeasonMode.dryOrange
-        : SeasonMode.rainyBlue;
     notifyListeners();
   }
 
@@ -186,6 +255,7 @@ final class DashboardController extends ChangeNotifier {
         ? 10
         : (_monitoringRadiusKm == 10 ? 2 : 5);
     notifyListeners();
+    loadDashboardData(latitude: _latitude, longitude: _longitude);
   }
 
   // --- Fungsi Kamera Lapangan & Form Pop-Up Google Lens ---
@@ -196,44 +266,55 @@ final class DashboardController extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Menyimpan byte foto hasil jepretan live CameraController lalu menampilkan Google Lens sheet.
+  /// Menyimpan byte foto hasil jepretan live CameraController lalu menampilkan Google Lens sheet (B27).
   void setCapturedPhotoFromCamera(Uint8List bytes) {
     _capturedPhotoBytes = bytes;
+    _photoCapturedAt = DateTime.now();
+    _reportFormError = null;
     _showLensReportSheet = true;
     notifyListeners();
   }
 
-  /// Meminta izin akses Kamera / Galeri native Android lalu membuka kamera/galeri & Google Lens sheet.
+  /// Meminta izin Kamera (hanya bila source == camera, B38) lalu membuka kamera/galeri.
+  /// Batal memilih atau izin ditolak tidak akan membuka form laporan (B10).
   Future<void> captureOrPickFieldPhoto({required ImageSource source}) async {
+    _cameraError = null;
     try {
       if (source == ImageSource.camera) {
-        await Permission.camera.request();
-      } else {
-        await Permission.photos.request();
-        await Permission.storage.request();
+        final status = await Permission.camera.request();
+        if (!status.isGranted) {
+          _cameraError = status.isPermanentlyDenied
+              ? 'Izin kamera ditolak permanen. Aktifkan lewat Pengaturan perangkat.'
+              : 'Izin kamera diperlukan untuk mengambil foto lapangan.';
+          notifyListeners();
+          return;
+        }
       }
 
+      // Kompres maxWidth 1280 sebelum disimpan ke memori (B31).
       final picked = await _picker.pickImage(
         source: source,
-        maxWidth: 1200,
+        maxWidth: 1280,
+        maxHeight: 1280,
         imageQuality: 85,
       );
-      if (picked != null) {
-        _capturedPhotoBytes = await picked.readAsBytes();
-        await _deleteTempFile(picked.path);
-        _showLensReportSheet = true;
-        notifyListeners();
-        return;
+      if (picked == null) {
+        return; // Batal memilih: jangan buka form (B10).
       }
-      // Jika memilih dari galeri tapi user batal memilih, jangan buka form
-      if (source == ImageSource.gallery) return;
-    } catch (_) {}
 
-    _showLensReportSheet = true;
-    notifyListeners();
+      _capturedPhotoBytes = await picked.readAsBytes();
+      _photoCapturedAt = DateTime.now();
+      _reportFormError = null;
+      await _deleteTempFile(picked.path);
+      _showLensReportSheet = true;
+      notifyListeners();
+    } catch (_) {
+      _cameraError = 'Tidak dapat membuka kamera atau galeri.';
+      notifyListeners();
+    }
   }
 
-  /// File foto sementara (hasil kamera/galeri) tidak dibutuhkan lagi setelah dibaca ke memori.
+  /// File foto sementara tidak dibutuhkan lagi setelah dibaca ke memori.
   Future<void> _deleteTempFile(String path) async {
     try {
       final file = File(path);
@@ -244,6 +325,8 @@ final class DashboardController extends ChangeNotifier {
   void retakePhoto() {
     _showLensReportSheet = false;
     _capturedPhotoBytes = null;
+    _photoCapturedAt = null;
+    _reportFormError = null;
     notifyListeners();
   }
 
@@ -254,40 +337,97 @@ final class DashboardController extends ChangeNotifier {
 
   void updateReportDescription(String value) {
     _reportDescription = value;
+    if (_reportFormError != null) _reportFormError = null;
     notifyListeners();
   }
 
-  /// Laporan langsung muncul di Riwayat dengan status "Mengirim", lalu diperbarui
-  /// sesuai jawaban server (atau "Gagal Kirim" bila server tidak terjangkau).
-  Future<void> submitFieldPhotoReport({required String locationName}) async {
+  /// Validasi & kirim laporan warga, lalu reset form setelah pengiriman dimulai (B09, B13).
+  Future<bool> submitFieldPhotoReport({required String locationName}) async {
+    if (_capturedPhotoBytes == null || _capturedPhotoBytes!.isEmpty) {
+      _reportFormError = 'Foto kondisi lapangan wajib dilampirkan.';
+      notifyListeners();
+      return false;
+    }
+    final desc = _reportDescription.trim();
+    if (desc.length < 10) {
+      _reportFormError = 'Deskripsi laporan minimal 10 karakter.';
+      notifyListeners();
+      return false;
+    }
+
     final draft = FieldReportDraft(
       category: _selectedIncidentCategory,
-      description: _reportDescription.trim(),
+      description: desc,
       latitude: _latitude,
       longitude: _longitude,
-      locationName: locationName,
-      capturedAt: DateTime.now(),
+      locationName: locationName.isEmpty ? 'Lokasi Terpantau' : locationName,
+      capturedAt: _photoCapturedAt ?? DateTime.now(),
       photoBytes: _capturedPhotoBytes,
     );
 
     final localId = 'LOCAL-${DateTime.now().microsecondsSinceEpoch}';
     _reports.insert(
       0,
-      FieldReportItemModel.fromDraft(draft, id: localId)
-          .copyWith(statusLabel: 'Mengirim'),
+      FieldReportItemModel.fromDraft(draft, id: localId).copyWith(
+        statusLabel: 'Mengirim',
+        isSyncing: true,
+        pendingDraft: draft,
+      ),
     );
+
+    // Bersihkan form setelah kirim agar laporan berikutnya mulai bersih (B09).
     _showLensReportSheet = false;
+    _capturedPhotoBytes = null;
+    _photoCapturedAt = null;
+    _reportDescription = '';
+    _reportFormError = null;
     _activeTab = DashboardTab.history;
     notifyListeners();
 
+    await _dispatchReportDraft(localId, draft);
+    return true;
+  }
+
+  /// Mengirim ulang laporan lokal yang berstatus Gagal Kirim (B13).
+  Future<void> retryFailedReport(String localId) async {
+    final idx = _reports.indexWhere((r) => r.id == localId);
+    if (idx == -1) return;
+    final item = _reports[idx];
+    final draft = item.pendingDraft;
+    if (draft == null) return;
+
+    _replaceReport(
+      localId,
+      (local) => local.copyWith(
+        statusLabel: 'Mengirim',
+        isFailed: false,
+        isSyncing: true,
+      ),
+    );
+    notifyListeners();
+    await _dispatchReportDraft(localId, draft);
+  }
+
+  Future<void> _dispatchReportDraft(String localId, FieldReportDraft draft) async {
     try {
       final saved = await _api.submitReport(draft);
       _replaceReport(
         localId,
-        (local) => saved.copyWith(capturedPhotoBytes: local.capturedPhotoBytes),
+        (local) => saved.copyWith(
+          capturedPhotoBytes: local.capturedPhotoBytes,
+          isFailed: false,
+          isSyncing: false,
+        ),
       );
     } catch (_) {
-      _replaceReport(localId, (local) => local.copyWith(statusLabel: 'Gagal Kirim'));
+      _replaceReport(
+        localId,
+        (local) => local.copyWith(
+          statusLabel: 'Gagal Kirim',
+          isFailed: true,
+          isSyncing: false,
+        ),
+      );
     }
     notifyListeners();
   }

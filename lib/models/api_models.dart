@@ -12,24 +12,86 @@ final class ApiException implements Exception {
   String toString() => 'ApiException($statusCode): $message';
 }
 
-/// Hasil login dari server.
+/// Hasil login/register dari server beserta profil pengguna aktif (B20, B22).
 final class AuthSession {
-  const AuthSession({required this.accessToken, this.userName});
+  const AuthSession({
+    required this.accessToken,
+    this.userName,
+    this.email,
+    this.phone,
+    this.handle,
+    this.locationName,
+    this.latitude,
+    this.longitude,
+    this.radiusKm,
+  });
 
   final String accessToken;
   final String? userName;
+  final String? email;
+  final String? phone;
+  final String? handle;
+  final String? locationName;
+  final double? latitude;
+  final double? longitude;
+  final int? radiusKm;
 
-  /// Bentuk JSON yang diharapkan:
-  /// `{"access_token": "...", "token_type": "bearer", "user": {"name": "..."}}`
+  AuthSession copyWith({
+    String? accessToken,
+    String? userName,
+    String? email,
+    String? phone,
+    String? handle,
+    String? locationName,
+    double? latitude,
+    double? longitude,
+    int? radiusKm,
+  }) {
+    return AuthSession(
+      accessToken: accessToken ?? this.accessToken,
+      userName: userName ?? this.userName,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      handle: handle ?? this.handle,
+      locationName: locationName ?? this.locationName,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      radiusKm: radiusKm ?? this.radiusKm,
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+        'access_token': accessToken,
+        'user_name': userName,
+        'email': email,
+        'phone': phone,
+        'handle': handle,
+        'location_name': locationName,
+        'latitude': latitude,
+        'longitude': longitude,
+        'radius_km': radiusKm,
+      };
+
+  /// Membaca payload login/register baik dari format nested `user` maupun flat.
   factory AuthSession.fromJson(Map<String, dynamic> json) {
     final token = json['access_token'];
     if (token is! String || token.isEmpty) {
       throw const ApiException('Jawaban login dari server tidak memuat access_token.');
     }
-    final user = json['user'];
+    final user = json['user'] is Map<String, dynamic>
+        ? json['user'] as Map<String, dynamic>
+        : <String, dynamic>{};
+
     return AuthSession(
       accessToken: token,
-      userName: user is Map<String, dynamic> ? user['name'] as String? : null,
+      userName: (user['name'] as String?) ?? (json['user_name'] as String?),
+      email: (user['email'] as String?) ?? (json['email'] as String?),
+      phone: (user['phone'] as String?) ?? (json['phone'] as String?),
+      handle: (user['handle'] as String?) ?? (json['handle'] as String?),
+      locationName: (user['location_name'] as String?) ?? (json['location_name'] as String?),
+      latitude: ((user['latitude'] ?? json['latitude']) as num?)?.toDouble(),
+      longitude: ((user['longitude'] ?? json['longitude']) as num?)?.toDouble(),
+      radiusKm: ((user['radius_km'] ?? json['radius_km']) as num?)?.toInt(),
     );
   }
 }

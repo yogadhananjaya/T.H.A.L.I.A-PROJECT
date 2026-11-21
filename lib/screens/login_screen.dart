@@ -21,51 +21,96 @@ class LoginScreen extends StatelessWidget {
   final AuthController controller;
   final ThaliaPalette palette;
 
-  void _showResetPasswordSheet(BuildContext context) {
-    showModalBottomSheet<void>(
+  Future<void> _showResetPasswordSheet(BuildContext context) async {
+    var resetEmail = '';
+    String? statusMsg;
+    var isErr = false;
+
+    await showModalBottomSheet<void>(
       context: context,
+      isScrollControlled: true,
       backgroundColor: palette.card,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (ctx) {
-        return Padding(
-          padding: const EdgeInsets.fromLTRB(24, 20, 24, 28),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Reset Sandi Otentikasi',
-                style: TextStyle(
-                  fontSize: 18,
-                  fontWeight: FontWeight.w800,
-                  color: palette.textPrimary,
-                ),
+        return StatefulBuilder(
+          builder: (ctx, setModalState) {
+            return Padding(
+              padding: EdgeInsets.fromLTRB(
+                24,
+                20,
+                24,
+                28 + MediaQuery.of(ctx).viewInsets.bottom,
               ),
-              const SizedBox(height: 6),
-              Text(
-                'Masukkan email terdaftar untuk menerima tautan pemulihan sandi.',
-                style: TextStyle(
-                  fontSize: 13.5,
-                  color: palette.textSecondary,
-                ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'Reset Sandi Otentikasi',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                      color: palette.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Masukkan email terdaftar untuk menerima tautan pemulihan sandi.',
+                    style: TextStyle(
+                      fontSize: 13.5,
+                      color: palette.textSecondary,
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+                  AuthInputField(
+                    label: 'Email / ID Petugas Resmi',
+                    palette: palette,
+                    hintText: 'Email',
+                    showStatusDot: true,
+                    onChanged: (val) => resetEmail = val,
+                  ),
+                  if (statusMsg != null) ...[
+                    const SizedBox(height: 10),
+                    Text(
+                      statusMsg!,
+                      style: TextStyle(
+                        fontSize: 12.5,
+                        fontWeight: FontWeight.w700,
+                        color: isErr
+                            ? const Color(0xFFB33A22)
+                            : ThaliaColors.tealAccent,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 18),
+                  PrimaryAuthButton(
+                    label: 'Kirim Tautan Reset',
+                    palette: palette,
+                    onTap: () async {
+                      try {
+                        final msg = await controller.requestPasswordReset(resetEmail);
+                        if (ctx.mounted) {
+                          setModalState(() {
+                            statusMsg = msg;
+                            isErr = false;
+                          });
+                        }
+                      } catch (e) {
+                        if (ctx.mounted) {
+                          setModalState(() {
+                            statusMsg = e.toString().replaceFirst('ApiException(null): ', '');
+                            isErr = true;
+                          });
+                        }
+                      }
+                    },
+                  ),
+                ],
               ),
-              const SizedBox(height: 18),
-              AuthInputField(
-                label: 'Email / ID Petugas Resmi',
-                palette: palette,
-                hintText: 'Email',
-                showStatusDot: true,
-              ),
-              const SizedBox(height: 18),
-              PrimaryAuthButton(
-                label: 'Kirim Tautan Reset',
-                palette: palette,
-                onTap: () => Navigator.of(ctx).pop(),
-              ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

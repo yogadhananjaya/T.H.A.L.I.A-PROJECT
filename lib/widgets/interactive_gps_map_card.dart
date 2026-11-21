@@ -73,7 +73,7 @@ class _InteractiveGpsMapCardState extends State<InteractiveGpsMapCard> {
           // 1. Kartografi bergaya Google Maps (jalan tol kuning, jalan lokal putih, sungai, taman)
           Positioned.fill(
             child: CustomPaint(
-              painter: GoogleMapsCartographyPainter(
+              painter: CartographyGridPainter(
                 isDark: palette.isDark,
                 centerLat: widget.gpsModel.latitude,
                 centerLng: widget.gpsModel.longitude,
@@ -97,7 +97,7 @@ class _InteractiveGpsMapCardState extends State<InteractiveGpsMapCard> {
                   tileProvider: _tileProvider,
                   urlTemplate:
                       'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  userAgentPackageName: 'com.thalia.ui_presu',
+                  userAgentPackageName: 'com.thalia.app',
                 ),
               ],
             ),
@@ -287,8 +287,8 @@ class _TargetBracketPainter extends CustomPainter {
 /// Kartografi bergaya Google Maps asli (jalan arteri kuning #FDE293, jalan lokal putih,
 /// taman kota hijau #C8E6C9, sungai #9CC0F9, dan blok bangunan) agar peta selalu tampak
 /// seperti Google Maps meskipun tile sedang dimuat atau koneksi emulator terbatas.
-class GoogleMapsCartographyPainter extends CustomPainter {
-  const GoogleMapsCartographyPainter({
+class CartographyGridPainter extends CustomPainter {
+  const CartographyGridPainter({
     this.isDark = false,
     this.centerLat = -6.2845,
     this.centerLng = 107.1705,
@@ -419,7 +419,7 @@ class GoogleMapsCartographyPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant GoogleMapsCartographyPainter oldDelegate) =>
+  bool shouldRepaint(covariant CartographyGridPainter oldDelegate) =>
       oldDelegate.centerLat != centerLat ||
       oldDelegate.centerLng != centerLng ||
       oldDelegate.isDark != isDark;

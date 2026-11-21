@@ -8,24 +8,47 @@ abstract interface class AuthService {
   /// Melempar [ApiException] bila kredensial salah atau server tidak terjangkau.
   Future<AuthSession> login({required String username, required String password});
 
+  /// Mendaftarkan akun baru dan mengembalikan sesi (B03).
+  Future<AuthSession> register({
+    required String fullName,
+    required String email,
+    required String password,
+    String locationName = '',
+    double? latitude,
+    double? longitude,
+  });
+
   Future<void> logout();
 
   /// Mengganti kata sandi akun yang sedang login.
-  /// Melempar [ApiException] bila sandi saat ini salah atau server tidak terjangkau.
   Future<void> changePassword({
     required String currentPassword,
     required String newPassword,
+  });
+
+  /// Mengirim permintaan reset kata sandi ke server (B22).
+  Future<String> forgotPassword({required String email});
+
+  /// Memperbarui profil atau lokasi pantauan pengguna (B20).
+  Future<AuthSession> updateProfile({
+    String? fullName,
+    String? phone,
+    String? handle,
+    String? locationName,
+    double? latitude,
+    double? longitude,
+    int? radiusKm,
   });
 }
 
 /// Kontrak data dashboard (prakiraan, sensor, laporan warga).
 /// Implementasi: [MockThaliaApiService] dan [HttpThaliaApiService].
 abstract interface class ThaliaApiService {
-  /// Prakiraan 5 hari untuk koordinat tertentu. Hari pertama biasanya berisi
-  /// pembacaan sensor lokal terbaru, hari berikutnya prakiraan BMKG.
+  /// Prakiraan multi-hari untuk koordinat & radius tertentu (B18).
   Future<List<ForecastDayModel>> fetchForecast({
     required double latitude,
     required double longitude,
+    int radiusKm = 5,
   });
 
   /// Riwayat laporan warga milik pengguna yang sedang login.

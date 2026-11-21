@@ -169,9 +169,9 @@ class _LensPhotoReportSheetState extends State<LensPhotoReportSheet> {
                         ),
                       ),
                       const SizedBox(width: 6),
-                      const Text(
-                        '09:41 WIB',
-                        style: TextStyle(
+                      Text(
+                        ctrl.formattedCaptureTime,
+                        style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
                           color: Colors.white,
@@ -315,7 +315,7 @@ class _LensPhotoReportSheetState extends State<LensPhotoReportSheet> {
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      'Lokasi: ${widget.locationName} • 09:41 WIB',
+                      'Lokasi: ${widget.locationName} • ${ctrl.formattedCaptureTime}',
                       style: TextStyle(
                         fontSize: 12.5,
                         color: climate.textSecondary,
@@ -433,7 +433,30 @@ class _LensPhotoReportSheetState extends State<LensPhotoReportSheet> {
                         color: climate.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 14),
+                    if (ctrl.reportFormError != null) ...[
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 12,
+                          vertical: 9,
+                        ),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFFFEFEA),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: const Color(0xFFE07A5F)),
+                        ),
+                        child: Text(
+                          ctrl.reportFormError!,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w700,
+                            color: Color(0xFF9E2B15),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
 
                     // Tombol Ambil Ulang & Kirim Laporan ->
                     Row(

@@ -7,10 +7,15 @@ import 'thalia_api_service.dart';
 /// Wadah dependensi: memilih implementasi layanan (contoh atau server sungguhan)
 /// berdasarkan [ApiConfig.useMockData], lalu dibagikan ke controller.
 final class ThaliaServices {
-  const ThaliaServices({required this.auth, required this.api});
+  const ThaliaServices({
+    required this.auth,
+    required this.api,
+    this.apiClient,
+  });
 
   final AuthService auth;
   final ThaliaApiService api;
+  final ApiClient? apiClient;
 
   /// Memakai data contoh bawaan (tanpa server).
   factory ThaliaServices.mock() {
@@ -23,6 +28,7 @@ final class ThaliaServices {
     return ThaliaServices(
       auth: HttpAuthService(client),
       api: HttpThaliaApiService(client),
+      apiClient: client,
     );
   }
 

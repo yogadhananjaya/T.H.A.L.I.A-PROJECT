@@ -1,11 +1,13 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 import '../config/api_config.dart';
 import '../models/api_models.dart';
 
 /// Klien HTTP tunggal untuk semua panggilan ke backend FastAPI.
-/// Memakai dart:io bawaan Flutter, jadi tidak menambah ukuran aplikasi.
+/// Menggunakan ulang satu [HttpClient] (B35), menangani 401 otomatis,
+/// dan mendukung unggah foto multipart (B31).
 final class ApiClient {
   ApiClient({String? baseUrl, Duration? timeout})
       : baseUrl = baseUrl ?? ApiConfig.baseUrl,
@@ -17,12 +19,91 @@ final class ApiClient {
   /// Diisi setelah login berhasil, dikirim sebagai `Authorization: Bearer <token>`.
   String? accessToken;
 
+  /// Dipanggil otomatis saat server mengembalikan HTTP 401 (sesi habis / tidak sah, B35).
+  void Function()? onUnauthorized;
+
+  HttpClient? _client;
+  HttpClient get _http => _client ??= (HttpClient()..connectionTimeout = timeout);
+
+  void close() {
+    _client?.close(force: true);
+    _client = null;
+  }
+
   Future<dynamic> get(String path, {Map<String, String>? query}) {
     return _send('GET', path, query: query);
   }
 
   Future<dynamic> post(String path, {Object? body}) {
     return _send('POST', path, body: body);
+  }
+
+  Future<dynamic> put(String path, {Object? body}) {
+    return _send('PUT', path, body: body);
+  }
+
+  /// Mengirim form multipart dengan lampiran foto biner (B31).
+  Future<dynamic> postMultipart(
+    String path, {
+    required Map<String, String> fields,
+    Uint8List? fileBytes,
+    String fileField = 'photo',
+    String fileName = 'report.jpg',
+  }) async {
+    final uri = Uri.parse('$baseUrl$path');
+    final uploadTimeout = ApiConfig.uploadTimeout;
+    final boundary = '----ThaliaBoundary${DateTime.now().microsecondsSinceEpoch}';
+
+    try {
+      final request = await _http.openUrl('POST', uri).timeout(uploadTimeout);
+      request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.set(
+        HttpHeaders.contentTypeHeader,
+        'multipart/form-data; boundary=$boundary',
+      );
+      final token = accessToken;
+      if (token != null) {
+        request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
+      }
+
+      for (final entry in fields.entries) {
+        request.add(utf8.encode('--$boundary\r\n'));
+        request.add(
+          utf8.encode('Content-Disposition: form-data; name="${entry.key}"\r\n\r\n'),
+        );
+        request.add(utf8.encode('${entry.value}\r\n'));
+      }
+
+      if (fileBytes != null && fileBytes.isNotEmpty) {
+        request.add(utf8.encode('--$boundary\r\n'));
+        request.add(
+          utf8.encode(
+            'Content-Disposition: form-data; name="$fileField"; filename="$fileName"\r\n'
+            'Content-Type: image/jpeg\r\n\r\n',
+          ),
+        );
+        request.add(fileBytes);
+        request.add(utf8.encode('\r\n'));
+      }
+
+      request.add(utf8.encode('--$boundary--\r\n'));
+
+      final response = await request.close().timeout(uploadTimeout);
+      final text =
+          await response.transform(utf8.decoder).join().timeout(uploadTimeout);
+
+      return _handleResponse(response.statusCode, text, hadToken: token != null);
+    } on ApiException {
+      rethrow;
+    } on TimeoutException {
+      throw const ApiException('Unggahan memakan waktu terlalu lama. Coba lagi.');
+    } on SocketException {
+      throw const ApiException(
+        'Tidak bisa terhubung ke server. Periksa alamat API dan koneksi.',
+      );
+    } on FormatException {
+      throw const ApiException('Jawaban server tidak berformat JSON yang valid.');
+    }
   }
 
   Future<dynamic> _send(
@@ -36,9 +117,8 @@ final class ApiClient {
       uri = uri.replace(queryParameters: query);
     }
 
-    final client = HttpClient()..connectionTimeout = timeout;
     try {
-      final request = await client.openUrl(method, uri).timeout(timeout);
+      final request = await _http.openUrl(method, uri).timeout(timeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
       final token = accessToken;
       if (token != null) {
@@ -53,14 +133,7 @@ final class ApiClient {
       final text =
           await response.transform(utf8.decoder).join().timeout(timeout);
 
-      if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw ApiException(
-          _errorMessage(text) ?? 'Server menjawab dengan kode ${response.statusCode}.',
-          statusCode: response.statusCode,
-        );
-      }
-      if (text.isEmpty) return null;
-      return jsonDecode(text);
+      return _handleResponse(response.statusCode, text, hadToken: token != null);
     } on ApiException {
       rethrow;
     } on TimeoutException {
@@ -71,9 +144,30 @@ final class ApiClient {
       );
     } on FormatException {
       throw const ApiException('Jawaban server tidak berformat JSON yang valid.');
-    } finally {
-      client.close(force: true);
     }
+  }
+
+  dynamic _handleResponse(
+    int statusCode,
+    String text, {
+    required bool hadToken,
+  }) {
+    if (statusCode == HttpStatus.unauthorized && hadToken) {
+      accessToken = null;
+      onUnauthorized?.call();
+      throw const ApiException(
+        'Sesi Anda telah berakhir. Silakan masuk kembali.',
+        statusCode: HttpStatus.unauthorized,
+      );
+    }
+    if (statusCode < 200 || statusCode >= 300) {
+      throw ApiException(
+        _errorMessage(text) ?? 'Server menjawab dengan kode $statusCode.',
+        statusCode: statusCode,
+      );
+    }
+    if (text.isEmpty) return null;
+    return jsonDecode(text);
   }
 
   /// FastAPI membungkus pesan galat dalam `{"detail": "..."}`.
