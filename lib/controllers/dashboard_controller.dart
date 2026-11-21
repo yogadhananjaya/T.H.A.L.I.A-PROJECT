@@ -12,6 +12,7 @@ import '../services/thalia_api_service.dart';
 /// Data prakiraan dan laporan diambil lewat [ThaliaApiService] (disuntikkan lewat konstruktor),
 /// sehingga controller ini tidak tahu apakah datanya dari server sungguhan atau data contoh.
 final class DashboardController extends ChangeNotifier {
+  // ignore: prefer_initializing_formals
   DashboardController({required ThaliaApiService api}) : _api = api;
 
   final ThaliaApiService _api;

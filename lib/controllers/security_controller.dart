@@ -46,6 +46,7 @@ final class PasswordStrength {
 /// Controller layar Keamanan & Kata Sandi: isi form, validasi, dan pemanggilan ganti sandi
 /// lewat [AuthController] (yang meneruskannya ke AuthService, data contoh atau server).
 final class SecurityController extends ChangeNotifier {
+  // ignore: prefer_initializing_formals
   SecurityController({required AuthController auth}) : _auth = auth;
 
   final AuthController _auth;
