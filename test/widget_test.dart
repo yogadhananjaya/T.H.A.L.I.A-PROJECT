@@ -8,6 +8,7 @@ import 'package:ui_presu/main.dart';
 import 'package:ui_presu/models/auth_models.dart';
 import 'package:ui_presu/models/dashboard_models.dart';
 import 'package:ui_presu/screens/splash_screen.dart';
+import 'package:ui_presu/services/alert_notification_service.dart';
 import 'package:ui_presu/services/mock_thalia_api_service.dart';
 import 'package:ui_presu/services/offline_cache_service.dart';
 import 'package:ui_presu/services/thalia_services.dart';
@@ -246,6 +247,30 @@ void main() {
       expect(dash.filteredReports.first.isCompleted, isTrue);
       expect(dash.filteredReports.first.statusLabel, 'Selesai');
       expect(dash.filteredReports.first.verifiedBy, isNotNull);
+    });
+
+    test('Hybrid AlertNotificationService falls back gracefully & Dashboard shows alert',
+        () async {
+      final alerts = AlertNotificationService();
+      await alerts.initialize();
+      expect(alerts.isFcmActive, isFalse); // Safe fallback without Firebase config
+
+      final dash = DashboardController(api: MockThaliaApiService());
+      dash.setEmergencyAlert(
+        const EmergencyAlertBannerData(
+          id: 99,
+          title: '⚠️ PERINGATAN BAHAYA',
+          body: 'Curah hujan ekstrem & kejenuhan tanah > 85%',
+          severity: 'Danger',
+          source: 'polling_backup',
+        ),
+      );
+      expect(dash.activeEmergencyAlert, isNotNull);
+      expect(dash.activeEmergencyAlert!.isDanger, isTrue);
+
+      dash.dismissEmergencyAlert();
+      expect(dash.activeEmergencyAlert, isNull);
+      alerts.dispose();
     });
   });
 }

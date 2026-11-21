@@ -41,4 +41,5 @@ final class ApiConfig {
   static const String profilePath = '/api/v1/auth/me';
   static const String forecastPath = '/api/v1/forecast';
   static const String reportsPath = '/api/v1/reports';
+  static const String alertsPath = '/api/v1/alerts';
 }

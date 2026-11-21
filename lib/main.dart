@@ -8,6 +8,7 @@ import 'models/api_models.dart';
 import 'models/auth_models.dart';
 import 'screens/auth_flow_shell.dart';
 import 'screens/splash_screen.dart';
+import 'services/alert_notification_service.dart';
 import 'services/thalia_services.dart';
 import 'theme/app_theme.dart';
 import 'utils/privacy_guard.dart';
@@ -80,6 +81,8 @@ class _ThaliaAppState extends State<ThaliaApp> {
   );
   late final DashboardController _dashboardController =
       DashboardController(api: _services.api);
+  late final AlertNotificationService _alertService =
+      AlertNotificationService(apiClient: _services.apiClient);
 
   AuthScreenStep? _lastStep;
   bool _hasEnteredDashboardSession = false;
@@ -101,6 +104,8 @@ class _ThaliaAppState extends State<ThaliaApp> {
     );
     _lastStep = _authController.currentStep;
     _authController.addListener(_onAuthChanged);
+    _alertService.onAlertReceived = _dashboardController.setEmergencyAlert;
+    _alertService.initialize();
     if (_authController.currentStep == AuthScreenStep.dashboard) {
       _onAuthChanged();
     }
@@ -120,6 +125,7 @@ class _ThaliaAppState extends State<ThaliaApp> {
       _loadedLat = null;
       _loadedLng = null;
       _coordinateDebounce?.cancel();
+      _alertService.stopBackupPolling();
       _dashboardController.reset();
     }
 
@@ -134,6 +140,7 @@ class _ThaliaAppState extends State<ThaliaApp> {
       _loadedLat = gps.latitude;
       _loadedLng = gps.longitude;
       _coordinateDebounce?.cancel();
+      _alertService.startBackupPolling();
       _dashboardController.loadDashboardData(
         latitude: gps.latitude,
         longitude: gps.longitude,
@@ -159,6 +166,7 @@ class _ThaliaAppState extends State<ThaliaApp> {
     _authController.removeListener(_onAuthChanged);
     _authController.dispose();
     _dashboardController.dispose();
+    _alertService.dispose();
     _services.apiClient?.close();
     super.dispose();
   }

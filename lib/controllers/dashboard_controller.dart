@@ -5,6 +5,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../models/api_models.dart';
 import '../models/dashboard_models.dart';
+import '../services/alert_notification_service.dart';
 import '../services/offline_cache_service.dart';
 import '../services/thalia_api_service.dart';
 
@@ -55,6 +56,22 @@ final class DashboardController extends ChangeNotifier {
 
   /// true bila data prakiraan saat ini berasal dari cache lokal saat server tidak terjangkau.
   bool get isOfflineCached => _isOfflineCached;
+
+  EmergencyAlertBannerData? _activeEmergencyAlert;
+
+  /// Peringatan bencana aktif yang diterima dari FCM atau polling cadangan `/api/v1/alerts`.
+  EmergencyAlertBannerData? get activeEmergencyAlert => _activeEmergencyAlert;
+
+  void setEmergencyAlert(EmergencyAlertBannerData alert) {
+    _activeEmergencyAlert = alert;
+    notifyListeners();
+  }
+
+  void dismissEmergencyAlert() {
+    if (_activeEmergencyAlert == null) return;
+    _activeEmergencyAlert = null;
+    notifyListeners();
+  }
 
   double _latitude = -6.2845;
   double get latitude => _latitude;
@@ -176,6 +193,7 @@ final class DashboardController extends ChangeNotifier {
     _forecastDays = ForecastDayModel.samplesForToday();
     _reports = List<FieldReportItemModel>.of(FieldReportItemModel.samples);
     _isOfflineCached = false;
+    _activeEmergencyAlert = null;
     OfflineCacheService.clear();
     notifyListeners();
   }
