@@ -52,7 +52,10 @@ async def get_side_by_side_comparison(db: Session = Depends(get_db)):
         status_value = "Safe"
 
     # Fetch BMKG regional forecast
-    bmkg_data = await BMKGService.get_regional_forecast()
+    bmkg_data = await BMKGService.get_regional_forecast(
+        lat=latest_local.latitude if latest_local else None,
+        lon=latest_local.longitude if latest_local else None,
+    )
 
     # Formulate granularity advantage analysis
     if local_data["soil_moisture_pct"] > 75.0 or local_data["rainfall_mm_h"] > 30.0:

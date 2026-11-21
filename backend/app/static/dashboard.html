@@ -145,7 +145,7 @@ async function refresh(){
     const c=await j('/comparison');const l=c.local_telemetry,b=c.bmkg_regional_forecast;
     $('cmp').innerHTML=
      '<div class="box"><h3>📍 Sensor Lokal T.H.A.L.I.A</h3>Hujan: <b>'+l.rainfall_mm_h+' mm/j</b><br>Kejenuhan tanah: <b>'+l.soil_moisture_pct+'%</b><br>Suhu: '+l.temperature_c+'°C · Lembap: '+l.humidity_pct+'%<br>Status: <b>'+l.status+'</b></div>'+
-     '<div class="box"><h3>🛰 BMKG (Regional) '+(b.is_live?'<span class="pill ok">LIVE</span>':'<span class="pill warn">FALLBACK</span>')+'</h3>Wilayah: <b>'+b.region_name+'</b><br>Cuaca: <b>'+b.weather_desc+'</b><br>Hujan prakiraan: <b>'+(b.rainfall_mm??0)+' mm</b><br>Suhu: '+b.temperature_c+'°C · Lembap: '+b.humidity_pct+'%'+(b.forecast_time?'<br>Slot: '+b.forecast_time:'')+'<br><small>'+b.source+'</small></div>';
+     '<div class="box"><h3>🛰 Cuaca Regional '+(b.source_level==='bmkg'?'<span class="pill ok">BMKG LIVE</span>':b.source_level==='open-meteo'?'<span class="pill ok" style="background:#3b82f633;color:#93c5fd">OPEN-METEO (cadangan nyata)</span>':'<span class="pill warn">DATA STATIS</span>')+'</h3>Wilayah: <b>'+b.region_name+'</b><br>Cuaca: <b>'+b.weather_desc+'</b><br>Hujan saat ini: <b>'+(b.rainfall_mm??0)+' mm</b> · Peluang: <b>'+b.rainfall_probability_pct+'%</b><br>Suhu: '+b.temperature_c+'°C · Lembap: '+b.humidity_pct+'%'+(b.forecast_time?'<br>Waktu data: '+b.forecast_time:'')+'<br><small>'+b.source+'</small></div>';
     $('adv').style.display='block';$('adv').textContent=c.granularity_advantage;
   }catch(e){}
 
