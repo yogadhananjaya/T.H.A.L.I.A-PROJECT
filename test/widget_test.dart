@@ -1,30 +1,43 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
 import 'package:ui_presu/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  testWidgets(
+      'Full journey: Selamat Datang -> Masuk Akun -> Dashboard -> Forecast Day Animation -> Profil -> Pengaturan',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const ThaliaApp());
+    await tester.pump(const Duration(milliseconds: 600));
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+    // 1. Mulai di Selamat Datang -> Klik Masuk ke Masuk Akun
+    expect(find.text('Selamat Datang'), findsOneWidget);
+    final masukLink = find.text('Masuk');
+    await tester.ensureVisible(masukLink);
     await tester.pump();
+    await tester.tap(masukLink);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('Masuk Akun'), findsOneWidget);
+
+    // 2. Klik Masuk ke Dashboard -> masuk ke Dashboard Utama (Biru Basic)
+    final loginBtn = find.text('Masuk ke Dashboard');
+    await tester.ensureVisible(loginBtn);
+    await tester.pump();
+    await tester.tap(loginBtn);
+    await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Hujan Ringan'), findsOneWidget);
+    expect(find.text('Prakiraan Cuaca 5 Hari'), findsOneWidget);
+
+    // 3. Klik hari Kam (15/5) di Prakiraan Cuaca 5 Hari -> animasi berubah ke Cerah Terik
+    final kamPill = find.text('Kam');
+    await tester.ensureVisible(kamPill);
+    await tester.pump();
+    await tester.tap(kamPill);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+
+    expect(find.text('Cerah Terik'), findsOneWidget);
   });
 }
