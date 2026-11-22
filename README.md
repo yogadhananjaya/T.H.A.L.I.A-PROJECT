@@ -37,6 +37,7 @@
   <a href="#architecture">Architecture</a> ·
   <a href="#tri-habitat-classification-rules">Classification Rules</a> ·
   <a href="#iot-hardware-node-esp32">Hardware Wiring</a> ·
+  <a href="#app-preview">App Preview</a> ·
   <a href="#core-api--web3-audit">API &amp; Web3</a> ·
   <a href="#quick-start">Quick Start</a> ·
   <a href="#team">Team</a>
@@ -109,7 +110,7 @@ Thresholds are centrally managed in `backend/app/core/config.py` and evaluated b
 ## IoT Hardware Node (ESP32)
 
 <p align="center">
-  <img src="docs/assets/hardware-wireframe.svg" alt="ESP32 Tri-Habitat Hardware Wiring Wireframe" width="100%"/>
+  <img src="docs/assets/hardware-wireframe.png" alt="ESP32 Tri-Habitat Hardware Wiring Wireframe" width="100%"/>
 </p>
 
 > **Voltage Safety Notice:**
@@ -123,18 +124,25 @@ Thresholds are centrally managed in `backend/app/core/config.py` and evaluated b
 | **Raindrop FC-37** | Hydrosphere | `3V3` / `GND` | `P23` (`DO`), `P35` (`AO` / ADC1) | `RAIN_DRY = 4095`, `RAIN_WET = 1200`; `DO` drives on-board LED (`GPIO 2`) |
 | **Capacitive Soil v1.2** | Lithosphere | `VIN` (5V) / `GND` | `P34` (`AOUT` / ADC1) | `SOIL_DRY = 2480`, `SOIL_WET = 650`; 15-sample ADC + 3-window MA |
 
+---
+
+## App Preview
+
+<div align="center">
+
+| Live Dashboard — Clear / Safe State |
+| :---: |
+| <img src="docs/assets/screenshots/dashboard-sunny.png" alt="T.H.A.L.I.A Flutter Dashboard — Clear Weather" width="280"/> |
+| <sub>Real-time Tri-Habitat telemetry (<code>23°C</code> · <code>0.0 mm/h</code> · <code>Humidity 52%</code> · <code>Soil 39%</code>) + 5-day forecast</sub> |
+
+</div>
+
 <!--
-## App & Dashboard Preview
+Additional screens (uncomment as screenshots are added to docs/assets/screenshots/):
 
-Drop live screenshots into `docs/assets/screenshots/` and uncomment this table:
-
-| Live Dashboard & Radar | Hyper-Local vs BMKG |
-| :---: | :---: |
-| <img src="docs/assets/screenshots/dashboard.png" alt="Live Dashboard" width="100%"/> | <img src="docs/assets/screenshots/comparison.png" alt="BMKG Comparison" width="100%"/> |
-
-| Emergency Alert & Hybrid Push | Web3 On-Chain Verification |
-| :---: | :---: |
-| <img src="docs/assets/screenshots/alert.png" alt="Emergency Alert" width="100%"/> | <img src="docs/assets/screenshots/audit.png" alt="Web3 Audit Trail" width="100%"/> |
+| Cloudy / Alert State | Hyper-Local vs BMKG | Web3 On-Chain Verification |
+| :---: | :---: | :---: |
+| <img src="docs/assets/screenshots/dashboard-cloudy.png" alt="Cloudy Dashboard" width="240"/> | <img src="docs/assets/screenshots/comparison.png" alt="BMKG Comparison" width="240"/> | <img src="docs/assets/screenshots/audit.png" alt="Web3 Audit Trail" width="240"/> |
 -->
 
 ---
