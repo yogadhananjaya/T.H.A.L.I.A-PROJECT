@@ -121,7 +121,17 @@ async def security_and_rate_limit_middleware(request: Request, call_next):
 app.include_router(api_router, prefix=settings.API_V1_STR)
 
 from fastapi.responses import FileResponse
+from fastapi.staticfiles import StaticFiles
 import os as _os
+
+_WEB_BUILD_DIR = _os.path.abspath(
+    _os.path.join(
+        _os.path.dirname(__file__),
+        "..", "..", "frontend", "T.H.A.L.I.A-PROJECT", "build", "web",
+    )
+)
+if _os.path.isdir(_WEB_BUILD_DIR):
+    app.mount("/app", StaticFiles(directory=_WEB_BUILD_DIR, html=True), name="flutter_web_app")
 
 @app.get("/dashboard", include_in_schema=False)
 def dashboard():
