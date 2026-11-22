@@ -65,7 +65,7 @@ class LocationSearchScreen extends StatefulWidget {
 class _LocationSearchScreenState extends State<LocationSearchScreen> {
   /// Tile OpenStreetMap gratis tanpa Google Maps API key (B36).
   static const String _tileUrl =
-      'https://tile.openstreetmap.org/{z}/{x}/{y}.png';
+      'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png';
   static const double _zoom = 16;
 
   final MapController _map = MapController();

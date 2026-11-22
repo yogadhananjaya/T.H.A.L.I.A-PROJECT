@@ -96,7 +96,7 @@ class _InteractiveGpsMapCardState extends State<InteractiveGpsMapCard> {
                 TileLayer(
                   tileProvider: _tileProvider,
                   urlTemplate:
-                      'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                      'https://basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}.png',
                   userAgentPackageName: 'com.thalia.app',
                 ),
               ],
