@@ -256,6 +256,34 @@ def get_telemetry_history(limit: int = Query(default=30, ge=1, le=200)):
     return {"count": len(rows), "items": rows}
 
 
+@router.get("/alerts", tags=["Pintu 2 - IoT ESP32 & Cuaca"])
+def get_emergency_alerts(limit: int = Query(default=20, ge=1, le=100)):
+    """Mengambil peringatan bencana (waspada/bahaya) dari pembacaan sensor IoT untuk notifikasi HP."""
+    with get_conn() as conn:
+        cur = conn.cursor()
+        cur.execute(
+            """
+            SELECT id, location_name, status, status_reason, recorded_at
+            FROM iot_telemetry
+            WHERE LOWER(status) IN ('waspada', 'bahaya', 'alert', 'danger')
+            ORDER BY id DESC
+            LIMIT %s;
+            """,
+            (limit,),
+        )
+        rows = cur.fetchall()
+    return [
+        {
+            "id": int(r["id"]),
+            "severity": "Danger" if str(r["status"]).lower() in ("bahaya", "danger") else "Alert",
+            "location_name": r["location_name"],
+            "cause_summary": r["status_reason"] or "Anomali sensor terdeteksi.",
+            "recorded_at": r["recorded_at"].isoformat(),
+        }
+        for r in rows
+    ]
+
+
 @router.get("/forecast", tags=["Pintu 2 - IoT ESP32 & Cuaca"])
 def get_forecast(
     lat: float = Query(default=-6.2845),
