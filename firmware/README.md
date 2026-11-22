@@ -34,23 +34,23 @@ Sesuaikan nilai kalibrasi di bagian atas `firmware/main.py` menggunakan alat per
   - Media basah $\rightarrow$ `65%–84%` (*Waspada / Alert*)
   - Media sangat jenuh $\rightarrow$ `>= 85%` (*Bahaya / Danger*), **atau** `>= 80%` bersamaan dengan hujan `>= 30%` (*Bahaya / Danger*)
 
-Kedua sensor analog menggunakan **rata-rata 15 sampel ADC**, dan khusus **Soil Moisture** ditambah **moving average 3 kiriman terakhir** (`SOIL_SMOOTH_WINDOW = 3`) untuk meredam fluktuasi di sekitar ambang 65% (sementara sensor hujan merespons instan tanpa delay moving average).
+Kedua sensor analog menggunakan **rata-rata 15 sampel ADC**, dan khusus **Soil Moisture** memakai `SOIL_SMOOTH_WINDOW = 1` agar respons demo real-time instan (dapat dinaikkan ke `3` untuk deployment lapangan). Pengiriman mendukung **HTTP LAN maupun HTTPS/ngrok** (dengan header `ngrok-skip-browser-warning`, `Connection: close`, serta `gc.collect()` sebelum & sesudah TLS), berjalan setiap **2.5 detik** plus **pemicu instan** begitu status hujan (`DO`) berubah.
 
 ---
 
 ## 3. Cara Setup & Upload ke ESP32 (Thonny IDE)
 
 1. Sambungkan ESP32 ke laptop dan pastikan interpreter Thonny mengarah ke **`MicroPython (ESP32)`**.
-2. Buat file **`secrets.py`** dari [`secrets.example.py`](./secrets.example.py), lalu isi `WIFI_SSID` (2.4 GHz), `WIFI_PASS`, dan `API_URL` (`http://<IP_LAPTOP>:8000/api/v1/telemetry`).
+2. Buat file **`secrets.py`** dari [`secrets.example.py`](./secrets.example.py), lalu isi `WIFI_SSID` (2.4 GHz), `WIFI_PASS`, dan `API_URL` (`http://<IP_LAPTOP>:8000/api/v1/telemetry` atau URL HTTPS publik/ngrok).
 3. Upload **kedua file** ke memori ESP32 via Thonny (**File -> Save copy... -> MicroPython device**):
    - `secrets.py` *(di-ignore oleh `firmware/.gitignore`)*
-   - `main.py` *(otomatis jalan mandiri tiap 10 detik saat dicolok Power Bank 5V 2A)*
+   - `main.py` *(otomatis jalan mandiri tiap 2.5 detik + pemicu hujan instan saat dicolok Power Bank 5V 2A)*
 
 ---
 
-## 4. Kontrak Payload (Sinkron dengan Branch `Backend` `ce761a2`)
+## 4. Kontrak Payload (Sinkron dengan Branch `Backend` `6501305` & `UI` `2b21304`)
 
-`POST /api/v1/telemetry` (`Content-Type: application/json`, interval **10 detik**):
+`POST /api/v1/telemetry` (`Content-Type: application/json`, interval **2.5 detik** + pemicu perubahan hujan instan):
 
 ```json
 {

@@ -37,20 +37,21 @@ RAIN_WET = 1200  # Kalibrasi: ADC saat plat basah merata
 SOIL_DRY = 2480  # Kalibrasi nyata: ADC kering di udara (~2481 -> 0.0%)
 SOIL_WET = 650   # Kalibrasi nyata: ADC dicelup air (~629-676 -> 100.0%)
 
-# Penghalusan khusus Soil Moisture (moving average 3 kiriman) untuk redam fluktuasi sekitar ambang 65%
-SOIL_SMOOTH_WINDOW = 3
+# Window 1 agar respons sensor tanah (Litosfer) langsung instan saat dicelup air
+SOIL_SMOOTH_WINDOW = 1
 
-# Interval & proteksi jaringan (10 detik sesuai proposal & dokumentasi backend)
+# Interval real-time cepat & stabil untuk HTTPS MicroPython
 SEND_TO_API = True
-SEND_INTERVAL_MS = 10000
-WIFI_RETRY_COOLDOWN_MS = 30000
+SEND_INTERVAL_MS = 2500
+WIFI_RETRY_COOLDOWN_MS = 15000
+HTTP_TIMEOUT_S = 5
 
 
 # ==============================================================================
 # 2. HELPER SENSOR & PENGHALUSAN
 # ==============================================================================
 class MovingAverage:
-    def __init__(self, size=3):
+    def __init__(self, size=1):
         self.size = max(1, size)
         self.buf = []
 
@@ -233,15 +234,21 @@ def connect_wifi():
 
 
 def post_telemetry(payload_dict):
-    """Kirim JSON ke FastAPI dengan proteksi socket leak (selalu close)."""
+    """Kirim JSON ke FastAPI (mendukung HTTP LAN & HTTPS/ngrok) dengan proteksi RAM & socket leak."""
     if not requests:
         return
     res = None
-    body = json.dumps(payload_dict)
-    headers = {"Content-Type": "application/json"}
+    body = json.dumps(payload_dict).encode("utf-8")
+    headers = {
+        "Content-Type": "application/json",
+        "ngrok-skip-browser-warning": "true",
+        "User-Agent": "THALIA-ESP32/1.0",
+        "Connection": "close",
+    }
+    gc.collect()  # Bebaskan heap sebelum TLS handshake HTTPS (butuh ~35-48 KB contiguous RAM)
     try:
         try:
-            res = requests.post(API_URL, data=body, headers=headers, timeout=5)
+            res = requests.post(API_URL, data=body, headers=headers, timeout=HTTP_TIMEOUT_S)
         except TypeError:
             res = requests.post(API_URL, data=body, headers=headers)
         print(f" -> API {res.status_code}")
@@ -258,18 +265,21 @@ def post_telemetry(payload_dict):
                 res.close()
             except Exception:
                 pass
+            res = None
+        gc.collect()  # Langsung bersihkan buffer TLS agar stabil 24 jam tanpa MemoryError
 
 
 connect_wifi()
 
 
 # ==============================================================================
-# 5. LOOP UTAMA T.H.A.L.I.A (NON-BLOCKING & ANTI MEMORY LEAK)
+# 5. LOOP UTAMA T.H.A.L.I.A (REAL-TIME INSTAN & ANTI MEMORY LEAK)
 # ==============================================================================
-print("[3/3] T.H.A.L.I.A berjalan!\n")
+print("[3/3] T.H.A.L.I.A berjalan (mode real-time 2.5 detik + pemicu hujan instan)!\n")
 last_send = time.ticks_ms()
 last_blink = time.ticks_ms()
 led_state = False
+prev_raining = False
 
 while True:
     now = time.ticks_ms()
@@ -285,8 +295,11 @@ while True:
         led.value(0)
         led_state = False
 
-    # 2. Baca sensor & kirim telemetri setiap 10 detik
-    if time.ticks_diff(now, last_send) >= SEND_INTERVAL_MS:
+    # 2. Kirim instan jika status hujan berubah (kering <-> basah), atau rutin setiap 2.5 detik
+    rain_changed = is_raining != prev_raining
+    if rain_changed or time.ticks_diff(now, last_send) >= SEND_INTERVAL_MS:
+        prev_raining = is_raining
+
         if bme is None:
             try:
                 bme = BME_BMP280(i2c)
@@ -302,10 +315,10 @@ while True:
                 print(" ⚠️ Koneksi BME280 terputus, akan reconnect otomatis...")
                 bme = None
 
-        # Baca FC-37 AO (GPIO 35): langsung 15-sample ADC (tanpa moving average agar respons demo instan)
+        # Baca FC-37 AO (GPIO 35): langsung 15-sample ADC
         rain_raw, rainfall_pct = baca_adc_persen(rain_adc, RAIN_DRY, RAIN_WET)
 
-        # Baca Soil Moisture (GPIO 34): 15-sample ADC + moving average 3 kiriman
+        # Baca Soil Moisture (GPIO 34): 15-sample ADC (window=1 agar instan saat demo)
         soil_raw, soil_pct_now = baca_adc_persen(soil_adc, SOIL_DRY, SOIL_WET)
         soil_pct = soil_smooth.update(soil_pct_now)
 
@@ -339,7 +352,7 @@ while True:
                 f"Soil={soil_pct}% (ADC={soil_raw})"
             )
 
-        gc.collect()  # Cegah fragmentasi RAM / MemoryError pada run 24 jam
-        last_send = now
+        gc.collect()  # Cegah fragmentasi RAM / MemoryError
+        last_send = time.ticks_ms()
 
     time.sleep_ms(10)
