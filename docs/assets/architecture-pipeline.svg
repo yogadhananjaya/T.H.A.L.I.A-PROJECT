@@ -1,0 +1,118 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 340" width="1200" height="340" role="img" aria-label="T.H.A.L.I.A System Architecture Pipeline">
+  <defs>
+    <linearGradient id="panelBg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#0B0F17"/>
+      <stop offset="100%" stop-color="#090D14"/>
+    </linearGradient>
+    <linearGradient id="c1Bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#102119"/>
+      <stop offset="100%" stop-color="#0D131C"/>
+    </linearGradient>
+    <linearGradient id="c2Bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#10202C"/>
+      <stop offset="100%" stop-color="#0D131C"/>
+    </linearGradient>
+    <linearGradient id="c3Bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1C152B"/>
+      <stop offset="100%" stop-color="#0D131C"/>
+    </linearGradient>
+    <linearGradient id="c4Bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#241D11"/>
+      <stop offset="100%" stop-color="#0D131C"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Outer container -->
+  <rect x="0.5" y="0.5" width="1199" height="339" rx="14" fill="url(#panelBg)" stroke="#21262D" stroke-width="1"/>
+
+  <!-- Header label -->
+  <text x="38" y="42" fill="#7D8590" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12" letter-spacing="2">SYSTEM PIPELINE · TRI-HABITAT TO WEB3</text>
+  <text x="1162" y="42" text-anchor="end" fill="#48566A" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11.5" letter-spacing="1.4">ESP32 → FASTAPI → SOLIDITY → FLUTTER</text>
+
+  <!-- CARD 1: ESP32 Edge Node -->
+  <g transform="translate(38, 66)">
+    <rect x="0" y="0" width="256" height="172" rx="10" fill="url(#c1Bg)" stroke="#50B868" stroke-opacity="0.72" stroke-width="1.3"/>
+    <!-- Chip icon -->
+    <rect x="20" y="20" width="20" height="20" rx="4" fill="none" stroke="#50B868" stroke-width="1.8"/>
+    <rect x="25" y="25" width="10" height="10" rx="1.5" fill="#50B868"/>
+    <text x="50" y="35" fill="#F0F6FC" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="700">ESP32 Edge Node</text>
+
+    <text x="20" y="68" fill="#9BA7B4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">BME280 · Rain FC-37 · Soil v1.2</text>
+    <text x="20" y="90" fill="#7D8590" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5">MicroPython · 10s JSON POST</text>
+
+    <line x1="20" y1="116" x2="236" y2="116" stroke="#1E2B24" stroke-width="1"/>
+    <text x="20" y="144" fill="#50B868" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12">firmware/main.py</text>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <g stroke="#50B868" stroke-opacity="0.65" stroke-width="1.8" fill="none">
+    <line x1="298" y1="152" x2="320" y2="152"/>
+    <polyline points="314,146 321,152 314,158"/>
+  </g>
+
+  <!-- CARD 2: FastAPI + BMKG -->
+  <g transform="translate(326, 66)">
+    <rect x="0" y="0" width="256" height="172" rx="10" fill="url(#c2Bg)" stroke="#60C0E8" stroke-opacity="0.72" stroke-width="1.3"/>
+    <!-- Server icon -->
+    <rect x="20" y="21" width="20" height="7" rx="2" fill="none" stroke="#60C0E8" stroke-width="1.8"/>
+    <rect x="20" y="32" width="20" height="7" rx="2" fill="none" stroke="#60C0E8" stroke-width="1.8"/>
+    <text x="50" y="35" fill="#F0F6FC" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="700">FastAPI + BMKG</text>
+
+    <text x="20" y="68" fill="#9BA7B4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">Rule Engine · Cooldown 60s</text>
+    <text x="20" y="90" fill="#7D8590" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5">PostgreSQL / SQLite · Open Data</text>
+
+    <line x1="20" y1="116" x2="236" y2="116" stroke="#1A2C38" stroke-width="1"/>
+    <text x="20" y="144" fill="#60C0E8" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12">backend/app/</text>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <g stroke="#60C0E8" stroke-opacity="0.65" stroke-width="1.8" fill="none">
+    <line x1="586" y1="152" x2="608" y2="152"/>
+    <polyline points="602,146 609,152 602,158"/>
+  </g>
+
+  <!-- CARD 3: Web3 Audit Trail -->
+  <g transform="translate(614, 66)">
+    <rect x="0" y="0" width="256" height="172" rx="10" fill="url(#c3Bg)" stroke="#A371F7" stroke-opacity="0.72" stroke-width="1.3"/>
+    <!-- Chain/Block icon -->
+    <polygon points="30,19 40,25 40,35 30,41 20,35 20,25" fill="none" stroke="#A371F7" stroke-width="1.8"/>
+    <circle cx="30" cy="30" r="3" fill="#A371F7"/>
+    <text x="50" y="35" fill="#F0F6FC" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="700">Web3 Audit Trail</text>
+
+    <text x="20" y="68" fill="#9BA7B4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">THALIARegistry.sol (Hardhat)</text>
+    <text x="20" y="90" fill="#7D8590" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5">SHA-256 Snapshot · 4-Layer Verify</text>
+
+    <line x1="20" y1="116" x2="236" y2="116" stroke="#281F3D" stroke-width="1"/>
+    <text x="20" y="144" fill="#A371F7" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12">blockchain/contracts/</text>
+  </g>
+
+  <!-- Arrow 3 -> 4 -->
+  <g stroke="#A371F7" stroke-opacity="0.65" stroke-width="1.8" fill="none">
+    <line x1="874" y1="152" x2="896" y2="152"/>
+    <polyline points="890,146 897,152 890,158"/>
+  </g>
+
+  <!-- CARD 4: Flutter Mobile + FCM -->
+  <g transform="translate(902, 66)">
+    <rect x="0" y="0" width="260" height="172" rx="10" fill="url(#c4Bg)" stroke="#F0B429" stroke-opacity="0.72" stroke-width="1.3"/>
+    <!-- Mobile icon -->
+    <rect x="22" y="19" width="14" height="22" rx="3" fill="none" stroke="#F0B429" stroke-width="1.8"/>
+    <circle cx="29" cy="36" r="1.4" fill="#F0B429"/>
+    <text x="48" y="35" fill="#F0F6FC" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="17" font-weight="700">Flutter + Alerts</text>
+
+    <text x="20" y="68" fill="#9BA7B4" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="13">Live Radar · BMKG Compare</text>
+    <text x="20" y="90" fill="#7D8590" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif" font-size="12.5">Hybrid FCM + Polling · Staff Verify</text>
+
+    <line x1="20" y1="116" x2="240" y2="116" stroke="#332815" stroke-width="1"/>
+    <text x="20" y="144" fill="#F0B429" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="12">lib/screens/ · lib/services/</text>
+  </g>
+
+  <!-- Bottom terminal command bar -->
+  <rect x="38" y="264" width="1124" height="46" rx="8" fill="#070A0F" stroke="#1B222C" stroke-width="1"/>
+  <text x="56" y="292" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="13">
+    <tspan fill="#50B868">$</tspan>
+    <tspan fill="#E6EDF3"> start_all.bat</tspan>
+    <tspan fill="#6E7681">   # Boots Hardhat Blockchain + FastAPI Backend + Flutter Client</tspan>
+  </text>
+  <text x="1142" y="292" text-anchor="end" fill="#48566A" font-family="'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="11" letter-spacing="1.6">FOUR STAGES · LIVE HARDWARE TO UI</text>
+</svg>
