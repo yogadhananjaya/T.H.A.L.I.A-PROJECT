@@ -28,75 +28,87 @@ class DashboardShellScreen extends StatelessWidget {
       listenable: dashboardController,
       builder: (context, _) {
         final isDark = Theme.of(context).brightness == Brightness.dark;
-        final climate = ClimatePalette(
-          season: dashboardController.seasonMode,
-          isDark: isDark,
-        );
+        final targetOrange =
+            dashboardController.seasonMode == SeasonMode.dryOrange ? 1.0 : 0.0;
         final activeTab = dashboardController.activeTab;
         final hideNavbar = activeTab == DashboardTab.camera &&
             dashboardController.showLensReportSheet &&
             !dashboardController.showingProfile;
 
-        return ColoredBox(
-          color: climate.canvas,
-          child: Column(
-            children: [
-              Expanded(
-                child: dashboardController.showingProfile
-                    ? ProfileScreen(
-                        key: const ValueKey('profile'),
-                        dashboardController: dashboardController,
-                        authController: authController,
-                        climate: climate,
-                      )
-                    : IndexedStack(
-                        index: activeTab.index,
-                        children: [
-                          HomeTabScreen(
-                            key: const ValueKey('tab_home'),
-                            controller: dashboardController,
-                            climate: climate,
-                            locationName: authController.gpsModel.resolvedAddress,
-                          ),
-                          MapsTabScreen(
-                            key: const ValueKey('tab_maps'),
+        return TweenAnimationBuilder<double>(
+          tween: Tween<double>(end: targetOrange),
+          duration: const Duration(milliseconds: 1100),
+          curve: Curves.easeInOutCubic,
+          builder: (context, orangeBlend, _) {
+            final climate = ClimatePalette(
+              season: dashboardController.seasonMode,
+              isDark: isDark,
+              orangeBlend: orangeBlend,
+            );
+
+            return ColoredBox(
+              color: climate.canvas,
+              child: Column(
+                children: [
+                  Expanded(
+                    child: dashboardController.showingProfile
+                        ? ProfileScreen(
+                            key: const ValueKey('profile'),
                             dashboardController: dashboardController,
                             authController: authController,
                             climate: climate,
-                          ),
-                          // Kamera hanya diinisialisasi saat tab Kamera aktif (B34).
-                          activeTab == DashboardTab.camera
-                              ? CameraTabScreen(
-                                  key: const ValueKey('tab_camera'),
-                                  dashboardController: dashboardController,
-                                  authController: authController,
-                                  climate: climate,
-                                )
-                              : const SizedBox.shrink(),
-                          HistoryTabScreen(
-                            key: const ValueKey('tab_history'),
-                            controller: dashboardController,
-                            climate: climate,
-                            isStaffVerifier:
-                                authController.activeSession?.isStaffVerifier ??
+                          )
+                        : IndexedStack(
+                            index: activeTab.index,
+                            children: [
+                              HomeTabScreen(
+                                key: const ValueKey('tab_home'),
+                                controller: dashboardController,
+                                climate: climate,
+                                locationName:
+                                    authController.gpsModel.resolvedAddress,
+                              ),
+                              MapsTabScreen(
+                                key: const ValueKey('tab_maps'),
+                                dashboardController: dashboardController,
+                                authController: authController,
+                                climate: climate,
+                              ),
+                              // Kamera hanya diinisialisasi saat tab Kamera aktif (B34).
+                              activeTab == DashboardTab.camera
+                                  ? CameraTabScreen(
+                                      key: const ValueKey('tab_camera'),
+                                      dashboardController: dashboardController,
+                                      authController: authController,
+                                      climate: climate,
+                                    )
+                                  : const SizedBox.shrink(),
+                              HistoryTabScreen(
+                                key: const ValueKey('tab_history'),
+                                controller: dashboardController,
+                                climate: climate,
+                                isStaffVerifier: authController
+                                        .activeSession?.isStaffVerifier ??
                                     false,
+                              ),
+                              CalendarTabScreen(
+                                key: const ValueKey('tab_calendar'),
+                                controller: dashboardController,
+                                climate: climate,
+                              ),
+                            ],
                           ),
-                          CalendarTabScreen(
-                            key: const ValueKey('tab_calendar'),
-                            controller: dashboardController,
-                            climate: climate,
-                          ),
-                        ],
-                      ),
+                  ),
+                  if (!hideNavbar)
+                    FloatingBottomNavbar(
+                      activeTab: activeTab,
+                      climate: climate,
+                      onSelectTab: dashboardController.selectTab,
+                    ),
+                ],
               ),
-              if (!hideNavbar)
-                FloatingBottomNavbar(
-                  activeTab: activeTab,
-                  climate: climate,
-                  onSelectTab: dashboardController.selectTab,
-                ),
-            ],
-          ),
+            );
+          },
         );
       },
     );

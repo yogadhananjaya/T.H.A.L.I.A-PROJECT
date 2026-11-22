@@ -25,59 +25,76 @@ enum SeasonMode {
 }
 
 /// Kelas OOP Palet Musim Dinamis (Biru Musim Hujan vs Oren Kemarau Panjang).
+/// Mendukung [orangeBlend] (0.0 = Biru penuh, 1.0 = Oren penuh) untuk transisi warna slow-morph.
 final class ClimatePalette {
   const ClimatePalette({
     required this.season,
     this.isDark = false,
-  });
+    double? orangeBlend,
+  }) : orangeBlend = orangeBlend ?? (season == SeasonMode.dryOrange ? 1.0 : 0.0);
 
   final SeasonMode season;
   final bool isDark;
+  final double orangeBlend;
 
-  bool get isOrange => season == SeasonMode.dryOrange;
+  bool get isOrange => orangeBlend >= 0.5;
+
+  Color _blend(Color blue, Color orange) =>
+      Color.lerp(blue, orange, orangeBlend.clamp(0.0, 1.0))!;
 
   Color get canvas => isDark
       ? const Color(0xFF0E1A26)
-      : (isOrange ? const Color(0xFFFAF5F0) : const Color(0xFFF4F7FA));
+      : _blend(const Color(0xFFF4F7FA), const Color(0xFFFAF5F0));
 
   Color get primaryDark => isDark
       ? const Color(0xFFF2F7FC)
-      : (isOrange ? const Color(0xFF3D1512) : const Color(0xFF132B47));
+      : _blend(const Color(0xFF132B47), const Color(0xFF3D1512));
 
   Color get primaryBrand =>
-      isOrange ? const Color(0xFFB52D1E) : const Color(0xFF245E96);
+      _blend(const Color(0xFF245E96), const Color(0xFFB52D1E));
 
   Color get accentHighlight =>
-      isOrange ? const Color(0xFFDF4E26) : const Color(0xFF2B70B0);
+      _blend(const Color(0xFF2B70B0), const Color(0xFFDF4E26));
 
   Color get warmDot =>
-      isOrange ? const Color(0xFFF4A938) : const Color(0xFFDF9A42);
+      _blend(const Color(0xFFDF9A42), const Color(0xFFF4A938));
 
   Color get cardFill => isDark
       ? const Color(0xFF16283B)
-      : (isOrange ? const Color(0xFFF2E6DC) : const Color(0xFFE7EFF6));
+      : _blend(const Color(0xFFE7EFF6), const Color(0xFFF2E6DC));
 
   Color get pillFill => isDark
       ? const Color(0xFF1E364F)
-      : (isOrange ? const Color(0xFFFBE3C8) : const Color(0xFFDCEBF7));
+      : _blend(const Color(0xFFDCEBF7), const Color(0xFFFBE3C8));
 
   Color get surfaceWhite =>
       isDark ? const Color(0xFF132435) : const Color(0xFFFFFFFF);
 
   Color get border => isDark
       ? const Color(0xFF28435C)
-      : (isOrange ? const Color(0xFFE5D1C3) : const Color(0xFFD0DFEC));
+      : _blend(const Color(0xFFD0DFEC), const Color(0xFFE5D1C3));
 
   Color get textSecondary => isDark
       ? const Color(0xFF9AB2C9)
-      : (isOrange ? const Color(0xFF6E5A4F) : const Color(0xFF51697D));
+      : _blend(const Color(0xFF51697D), const Color(0xFF6E5A4F));
 
   Color get activeForecastBg =>
-      isOrange ? const Color(0xFFB52D1E) : const Color(0xFF132B47);
+      _blend(const Color(0xFF132B47), const Color(0xFFB52D1E));
 
   String get heroWeatherCardAsset => isOrange
       ? FigcraftAssets.heroWeatherSunCard
       : FigcraftAssets.heroWeatherRainCard;
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is ClimatePalette &&
+          season == other.season &&
+          isDark == other.isDark &&
+          orangeBlend == other.orangeBlend;
+
+  @override
+  int get hashCode => Object.hash(season, isDark, orangeBlend);
 }
 
 /// Model OOP untuk Kartu Tri-Habitat di Dashboard (Atmosfer, Hidrosfer, Litosfer).
@@ -163,6 +180,10 @@ final class ForecastDayModel {
     final subtitle = json['condition_subtitle'] as String? ??
         'Curah $rainText mm/jam • Status ${status.label}';
 
+    final seasonMode = (json['season_mode'] as String? ?? '').toLowerCase();
+    final isDryOrange = seasonMode == 'dry_orange' ||
+        (seasonMode.isEmpty && (code == 'sunny' || code == 'clear'));
+
     return ForecastDayModel(
       dayShort: json['day_short'] as String? ??
           (date == null ? '-' : _dayShortNames[date.weekday - 1]),
@@ -174,7 +195,7 @@ final class ForecastDayModel {
       humidityText: 'Lembap ${humidity ?? '-'}%',
       waterLevelText: 'Air ${water ?? '-'} cm',
       soilText: 'Tanah ${soil ?? '-'}%',
-      triggersDryOrangePreview: false, // Tema tidak diubah oranye hanya karena satu hari cerah (B29).
+      triggersDryOrangePreview: isDryOrange,
     );
   }
 
@@ -188,6 +209,7 @@ final class ForecastDayModel {
         'humidityText': humidityText,
         'waterLevelText': waterLevelText,
         'soilText': soilText,
+        'triggersDryOrangePreview': triggersDryOrangePreview,
       };
 
   factory ForecastDayModel.fromCacheJson(Map<String, dynamic> json) {
@@ -201,6 +223,7 @@ final class ForecastDayModel {
       humidityText: json['humidityText'] as String? ?? 'Lembap -%',
       waterLevelText: json['waterLevelText'] as String? ?? 'Air - cm',
       soilText: json['soilText'] as String? ?? 'Tanah -%',
+      triggersDryOrangePreview: json['triggersDryOrangePreview'] as bool? ?? false,
     );
   }
 

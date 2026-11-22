@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
@@ -40,6 +41,32 @@ final class DashboardController extends ChangeNotifier {
   bool get isLoading => _isLoading;
 
   int _loadGeneration = 0; // Token permintaan agar lokasi terbaru tidak terbuang (B11).
+  Timer? _liveSyncTimer;
+
+  /// Mengaktifkan sinkronisasi otomatis data sensor IoT real-time tiap 2 detik.
+  void startLiveSync({Duration interval = const Duration(seconds: 2)}) {
+    _liveSyncTimer?.cancel();
+    _liveSyncTimer = Timer.periodic(interval, (_) {
+      if (_isLoading) return;
+      loadDashboardData(
+        latitude: _latitude,
+        longitude: _longitude,
+        silent: true,
+      );
+    });
+  }
+
+  /// Menghentikan sinkronisasi otomatis data sensor IoT.
+  void stopLiveSync() {
+    _liveSyncTimer?.cancel();
+    _liveSyncTimer = null;
+  }
+
+  @override
+  void dispose() {
+    stopLiveSync();
+    super.dispose();
+  }
 
   String? _loadError;
 
@@ -154,6 +181,7 @@ final class DashboardController extends ChangeNotifier {
 
   /// Reset seluruh state dashboard saat pengguna logout (B08).
   void reset() {
+    stopLiveSync();
     _loadGeneration++;
     _activeTab = DashboardTab.home;
     _seasonMode = SeasonMode.rainyBlue;
@@ -187,13 +215,16 @@ final class DashboardController extends ChangeNotifier {
   Future<void> loadDashboardData({
     required double latitude,
     required double longitude,
+    bool silent = false,
   }) async {
     final gen = ++_loadGeneration;
     _latitude = latitude;
     _longitude = longitude;
-    _isLoading = true;
-    _loadError = null;
-    notifyListeners();
+    if (!silent) {
+      _isLoading = true;
+      _loadError = null;
+      notifyListeners();
+    }
 
     try {
       final forecast = await _api.fetchForecast(
@@ -208,8 +239,12 @@ final class DashboardController extends ChangeNotifier {
       if (forecast.isNotEmpty) {
         _forecastDays = forecast;
         if (_selectedForecastIndex >= forecast.length) _selectedForecastIndex = 0;
+        _seasonMode = currentForecast.triggersDryOrangePreview
+            ? SeasonMode.dryOrange
+            : SeasonMode.rainyBlue;
         _isSampleData = false;
         _isOfflineCached = false;
+        _loadError = null;
         await OfflineCacheService.saveForecast(forecast);
       }
 
@@ -219,12 +254,14 @@ final class DashboardController extends ChangeNotifier {
       _reports = [...pendingLocals, ...serverReports];
     } on ApiException catch (e) {
       if (gen != _loadGeneration) return;
+      if (silent && !_isSampleData) return;
       await _applyOfflineFallback();
       _loadError = _isOfflineCached
           ? '${e.message} (Menampilkan data tersimpan terakhir)'
           : e.message;
     } catch (_) {
       if (gen != _loadGeneration) return;
+      if (silent && !_isSampleData) return;
       await _applyOfflineFallback();
       _loadError = _isOfflineCached
           ? 'Mode offline · Menampilkan data prakiraan tersimpan terakhir.'
@@ -270,6 +307,9 @@ final class DashboardController extends ChangeNotifier {
   void selectForecastDay(int index) {
     if (index < 0 || index >= _forecastDays.length) return;
     _selectedForecastIndex = index;
+    _seasonMode = _forecastDays[index].triggersDryOrangePreview
+        ? SeasonMode.dryOrange
+        : SeasonMode.rainyBlue;
     notifyListeners();
   }
 

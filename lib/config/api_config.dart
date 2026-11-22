@@ -17,8 +17,10 @@ final class ApiConfig {
   /// Alamat server FastAPI, tanpa garis miring di akhir.
   /// Emulator Android: `10.0.2.2` berarti localhost laptop.
   /// HP fisik: pakai IP laptop di jaringan yang sama, mis. `http://192.168.1.10:8000`.
-  static const String baseUrl =
-      String.fromEnvironment('THALIA_API_URL', defaultValue: 'http://10.0.2.2:8000');
+  static const String baseUrl = String.fromEnvironment(
+    'THALIA_API_URL',
+    defaultValue: 'https://zoom-prior-conducive.ngrok-free.dev',
+  );
 
   /// Batas waktu tunggu satu permintaan standar ke server.
   static const Duration requestTimeout = Duration(seconds: 8);

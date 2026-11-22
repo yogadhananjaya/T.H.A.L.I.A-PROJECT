@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'config/api_config.dart';
 import 'controllers/auth_controller.dart';
 import 'controllers/dashboard_controller.dart';
 import 'models/api_models.dart';
@@ -138,6 +139,9 @@ class _ThaliaAppState extends State<ThaliaApp> {
         latitude: gps.latitude,
         longitude: gps.longitude,
       );
+      if (widget.services == null && !ApiConfig.useMockData) {
+        _dashboardController.startLiveSync();
+      }
     } else if (moved) {
       _hasEnteredDashboardSession = true;
       _loadedLat = gps.latitude;

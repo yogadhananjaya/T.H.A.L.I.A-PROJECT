@@ -308,8 +308,8 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                                     begin: 24,
                                     end: forecast.temperatureC.toDouble(),
                                   ),
-                                  duration: const Duration(milliseconds: 360),
-                                  curve: Curves.easeOutCubic,
+                                  duration: const Duration(milliseconds: 750),
+                                  curve: Curves.easeInOutCubic,
                                   builder: (context, val, _) {
                                     return Text(
                                       '${val.round()}',
@@ -358,7 +358,9 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                             ),
                             const SizedBox(height: 6),
                             AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
+                              duration: const Duration(milliseconds: 650),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
                               child: Text(
                                 forecast.conditionTitle,
                                 key: ValueKey<String>(forecast.conditionTitle),
@@ -366,15 +368,19 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                                   fontSize: 22,
                                   fontWeight: FontWeight.w800,
                                   letterSpacing: -0.5,
-                                  color: climate.isOrange
-                                      ? climate.primaryBrand
-                                      : climate.primaryDark,
+                                  color: Color.lerp(
+                                    climate.primaryDark,
+                                    climate.primaryBrand,
+                                    climate.orangeBlend,
+                                  ),
                                 ),
                               ),
                             ),
                             const SizedBox(height: 4),
                             AnimatedSwitcher(
-                              duration: const Duration(milliseconds: 220),
+                              duration: const Duration(milliseconds: 650),
+                              switchInCurve: Curves.easeOutCubic,
+                              switchOutCurve: Curves.easeInCubic,
                               child: Text(
                                 forecast.conditionSubtitle,
                                 key: ValueKey<String>(
@@ -392,7 +398,19 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                       ),
                       const SizedBox(width: 12),
                       AnimatedSwitcher(
-                        duration: const Duration(milliseconds: 240),
+                        duration: const Duration(milliseconds: 800),
+                        switchInCurve: Curves.easeOutCubic,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) {
+                          return FadeTransition(
+                            opacity: animation,
+                            child: ScaleTransition(
+                              scale: Tween<double>(begin: 0.90, end: 1.0)
+                                  .animate(animation),
+                              child: child,
+                            ),
+                          );
+                        },
                         child: Image.asset(
                           useSunCard
                               ? 'assets/images/hero_weather_sun_card.png'
@@ -578,8 +596,43 @@ class _AnimatedDashboardTopHeaderPainter extends CustomPainter {
     final sy = size.height / 196.0;
     final s1 = math.sin(progress * math.pi) * 4.5 * sy;
     final s2 = math.cos(progress * math.pi) * 3.8 * sy;
+    final t = climate.orangeBlend.clamp(0.0, 1.0);
+    final rainAlpha = 1.0 - t;
+    final sunAlpha = t;
+    final bounds = Offset.zero & size;
 
-    if (climate.isOrange) {
+    // Layer A: Awan Hujan Biru (meluncur turun & fade-in saat menuju musim hujan)
+    if (rainAlpha > 0.005) {
+      if (rainAlpha < 0.995) {
+        canvas.saveLayer(
+          bounds,
+          Paint()..color = Color.fromRGBO(255, 255, 255, rainAlpha),
+        );
+        canvas.translate(0, -t * 24 * sy);
+      }
+      _paintRainClouds(canvas, sx, sy, s1, s2);
+      if (rainAlpha < 0.995) {
+        canvas.restore();
+      }
+    }
+
+    // Layer B: Matahari Kemarau Oren (meluncur halus & fade-in saat menuju cuaca panas)
+    if (sunAlpha > 0.005) {
+      if (sunAlpha < 0.995) {
+        canvas.saveLayer(
+          bounds,
+          Paint()..color = Color.fromRGBO(255, 255, 255, sunAlpha),
+        );
+        canvas.translate(0, -(1.0 - t) * 24 * sy);
+      }
+      _paintOrangeSun(canvas, sx, sy, s1, s2);
+      if (sunAlpha < 0.995) {
+        canvas.restore();
+      }
+    }
+  }
+
+  void _paintOrangeSun(Canvas canvas, double sx, double sy, double s1, double s2) {
       // Varian Kemarau Panjang / Cuaca Panas (Oren) - Presisi SVG Node 1304
       // 1. Sunbeam Peach Halo (#FBE3C8)
       final haloPath = Path()
@@ -660,9 +713,9 @@ class _AnimatedDashboardTopHeaderPainter extends CustomPainter {
           ..strokeWidth = 2.5 * sx
           ..strokeCap = StrokeCap.round,
       );
-      return;
-    }
+  }
 
+  void _paintRainClouds(Canvas canvas, double sx, double sy, double s1, double s2) {
     // 1. Rain Mist Left Base (#BAD8EE) - x: -14, y: -16, w: 192, h: 152
     canvas.drawRRect(
       RRect.fromRectAndCorners(

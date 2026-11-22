@@ -46,3 +46,7 @@ app.*.map.json
 
 # Widget Preview related
 .widget_preview/
+
+# Local Personal Backend API artifacts
+backend_api/__pycache__/
+backend_api/uploads/

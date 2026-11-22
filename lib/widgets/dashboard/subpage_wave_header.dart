@@ -191,18 +191,27 @@ class _AnimatedSubpageWavePainter extends CustomPainter {
     final sy = size.height / 140.0;
     final waveShift = math.sin(progress * math.pi) * 4.5 * sy;
 
-    final baseMistColor = climate.isOrange
-        ? const Color(0xFFFBE3C8)
-        : const Color(0xFFA9D2EE);
-    final midRibbonColor = climate.isOrange
-        ? const Color(0xFFDF4E26)
-        : const Color(0xFF245E96);
-    final topDeepColor = climate.isOrange
-        ? const Color(0xFF8F2216)
-        : const Color(0xFF142D4B);
-    final orbColor = climate.isOrange
-        ? const Color(0xFFF4A938)
-        : const Color(0xFF64AEE0);
+    final t = climate.orangeBlend.clamp(0.0, 1.0);
+    final baseMistColor = Color.lerp(
+      const Color(0xFFA9D2EE),
+      const Color(0xFFFBE3C8),
+      t,
+    )!;
+    final midRibbonColor = Color.lerp(
+      const Color(0xFF245E96),
+      const Color(0xFFDF4E26),
+      t,
+    )!;
+    final topDeepColor = Color.lerp(
+      const Color(0xFF142D4B),
+      const Color(0xFF8F2216),
+      t,
+    )!;
+    final orbColor = Color.lerp(
+      const Color(0xFF64AEE0),
+      const Color(0xFFF4A938),
+      t,
+    )!;
 
     // 1. Wave Base Mist (#A9D2EE)
     final mistPath = Path()

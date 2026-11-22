@@ -80,6 +80,7 @@ final class ApiClient {
     try {
       final request = await _http.openUrl('POST', uri).timeout(uploadTimeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.set('ngrok-skip-browser-warning', 'true');
       request.headers.set(
         HttpHeaders.contentTypeHeader,
         'multipart/form-data; boundary=$boundary',
@@ -143,6 +144,7 @@ final class ApiClient {
     try {
       final request = await _http.openUrl(method, uri).timeout(timeout);
       request.headers.set(HttpHeaders.acceptHeader, 'application/json');
+      request.headers.set('ngrok-skip-browser-warning', 'true');
       request.headers.set(
         'X-Request-ID',
         'thalia-${DateTime.now().microsecondsSinceEpoch}',
