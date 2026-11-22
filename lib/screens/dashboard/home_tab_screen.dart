@@ -226,6 +226,69 @@ class _HomeTabScreenState extends State<HomeTabScreen>
                       child: const LinearProgressIndicator(minHeight: 3),
                     ),
                   ),
+                if (ctrl.activeEmergencyAlert != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 12),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: ctrl.activeEmergencyAlert!.isDanger
+                            ? const Color(0xFFFFE6E0)
+                            : const Color(0xFFFFF4DC),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(
+                          color: ctrl.activeEmergencyAlert!.isDanger
+                              ? const Color(0xFFD32F2F)
+                              : const Color(0xFFEF6C00),
+                        ),
+                      ),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(
+                            Icons.warning_amber_rounded,
+                            size: 20,
+                            color: ctrl.activeEmergencyAlert!.isDanger
+                                ? const Color(0xFFD32F2F)
+                                : const Color(0xFFEF6C00),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  ctrl.activeEmergencyAlert!.title,
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: Color(0xFF5D120A),
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  ctrl.activeEmergencyAlert!.body,
+                                  style: const TextStyle(
+                                    fontSize: 11.5,
+                                    color: Color(0xFF6A2A1E),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          IconButton(
+                            padding: EdgeInsets.zero,
+                            constraints: const BoxConstraints(),
+                            icon: const Icon(Icons.close_rounded, size: 18),
+                            onPressed: ctrl.dismissEmergencyAlert,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
                 if (ctrl.loadError != null || ctrl.isSampleData)
                   Padding(
                     padding: const EdgeInsets.only(bottom: 12),

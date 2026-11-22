@@ -14,13 +14,15 @@ final class ApiConfig {
   static const bool useMockData =
       bool.fromEnvironment('THALIA_USE_MOCK', defaultValue: false);
 
+  static const String _envApiUrl =
+      String.fromEnvironment('THALIA_API_URL', defaultValue: '');
+
   /// Alamat server FastAPI, tanpa garis miring di akhir.
-  /// Emulator Android: `10.0.2.2` berarti localhost laptop.
-  /// HP fisik: pakai IP laptop di jaringan yang sama, mis. `http://192.168.1.10:8000`.
-  static const String baseUrl = String.fromEnvironment(
-    'THALIA_API_URL',
-    defaultValue: 'https://zoom-prior-conducive.ngrok-free.dev',
-  );
+  /// Default memakai URL Ngrok permanen agar Android, Emulator, Web, & ESP32
+  /// bisa konek dari jaringan berbeda tanpa gonta-ganti IP.
+  static String get baseUrl => _envApiUrl.isNotEmpty
+      ? _envApiUrl
+      : 'https://zoom-prior-conducive.ngrok-free.dev';
 
   /// Batas waktu tunggu satu permintaan standar ke server.
   static const Duration requestTimeout = Duration(seconds: 8);
@@ -36,4 +38,5 @@ final class ApiConfig {
   static const String profilePath = '/api/v1/auth/me';
   static const String forecastPath = '/api/v1/forecast';
   static const String reportsPath = '/api/v1/reports';
+  static const String alertsPath = '/api/v1/alerts';
 }
